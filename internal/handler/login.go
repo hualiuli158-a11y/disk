@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"disk/pkg/logger"
 	"errors"
 
 	"disk/internal/service"
@@ -12,10 +13,12 @@ import (
 
 type LoginHandler struct {
 	loginService *service.LoginService
+	logger       *logger.Logger
 }
 
-func NewLoginHandler(loginService *service.LoginService) *LoginHandler {
-	return &LoginHandler{loginService: loginService}
+func NewLoginHandler(loginService *service.LoginService, baseLogger *logger.Logger) *LoginHandler {
+	return &LoginHandler{loginService: loginService,
+		logger: baseLogger.WithFields(logger.Fields{"module": "Login_Handler"})}
 }
 
 type LoginRequest struct {
@@ -42,6 +45,9 @@ type LoginResponse struct {
 func (h *LoginHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithFields(logger.Fields{
+			"error": err.Error(),
+		}).Warn("invalid login request")
 		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
 		return
 	}
@@ -50,14 +56,24 @@ func (h *LoginHandler) Login(c *gin.Context) {
 		Password: req.Password,
 	})
 	if errors.Is(err, service.ErrInvalidCredentials) {
+		h.logger.WithFields(logger.Fields{
+			"username": req.Username,
+		}).Warn("login rejected")
 		app.NewResponse(c).ToErrorResponse(errcode.InvalidCredentials)
 		return
 	}
 	if err != nil {
+		h.logger.WithFields(logger.Fields{
+			"error":    err.Error(),
+			"username": req.Username,
+		}).Error("login failed")
 		app.NewResponse(c).ToErrorResponse(errcode.ServerError)
 		return
 	}
 
+	h.logger.WithFields(logger.Fields{
+		"username": req.Username,
+	}).Info("login succeeded")
 	app.NewResponse(c).ToResponse(LoginResponse{
 		AccessToken: result.AccessToken,
 	})

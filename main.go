@@ -60,7 +60,7 @@ func main() {
 
 	jwtService := InitJWTService(config)
 	loginService := InitService(db, jwtService)
-	loginHandler := handler.NewLoginHandler(loginService)
+	loginHandler := handler.NewLoginHandler(loginService, baseLogger)
 
 	if err := InitRouter(config, baseLogger, jwtService, loginHandler); err != nil {
 		baseLogger.Fatal(err)
