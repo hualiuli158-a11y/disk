@@ -17,7 +17,11 @@ go.work
 go.work.sum
 
 # Local caches
+.cache/
 .gocache/
+
+# Local documentation
+docs/file/
 
 # IDE and editor settings
 .idea/

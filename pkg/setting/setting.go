@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -26,11 +27,22 @@ func LoadDatabase() {
 type Config struct {
 	Server   HttpConfig
 	Database DatabaseConfig
+	Jwt      JwtConfig
 }
 
 func LoadConfig() (*Config, error) {
 	if err := LoadEnvironment(); err != nil {
 		return nil, err
+	}
+
+	jwtExpireValue := strings.TrimSpace(os.Getenv("JWT_EXPIRE"))
+	jwtExpire, err := time.ParseDuration(jwtExpireValue)
+	if err != nil {
+		// Keep compatibility with values such as JWT_EXPIRE=3600, interpreted as seconds.
+		jwtExpire, err = time.ParseDuration(jwtExpireValue + "s")
+	}
+	if err != nil || jwtExpire <= 0 {
+		return nil, fmt.Errorf("JWT_EXPIRE must be a positive duration (for example 3600 or 1h)")
 	}
 
 	config := &Config{
@@ -43,6 +55,11 @@ func LoadConfig() (*Config, error) {
 			Username:     strings.TrimSpace(os.Getenv("DB_USER")),
 			Password:     os.Getenv("DB_PASSWORD"),
 			DatabaseName: strings.TrimSpace(os.Getenv("DB_NAME")),
+		},
+		Jwt: JwtConfig{
+			Secret: strings.TrimSpace(os.Getenv("JWT_SECRET")),
+			Issuer: strings.TrimSpace(os.Getenv("JWT_ISSUER")),
+			Expire: jwtExpire,
 		},
 	}
 
@@ -74,4 +91,10 @@ type DatabaseConfig struct {
 	Password     string
 	Host         string
 	DatabaseName string
+}
+
+type JwtConfig struct {
+	Secret string
+	Issuer string
+	Expire time.Duration
 }

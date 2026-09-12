@@ -2,6 +2,7 @@ package main
 
 import (
 	"disk/internal/router"
+	"disk/pkg/app"
 	"disk/pkg/logger"
 	"disk/pkg/setting"
 	"net"
@@ -17,20 +18,24 @@ import (
 // └─ 监听系统信号并优雅关闭
 
 func main() {
-
 	baseLogger := logger.NewLogger(os.Stdout)
 	config, err := setting.LoadConfig()
 	if err != nil {
 		baseLogger.Fatal(err)
 	}
 
-	if err := InitRouter(config, baseLogger); err != nil {
+	jwtService, err := InitJWTService(config)
+	if err != nil {
+		baseLogger.Fatal(err)
+	}
+
+	if err := InitRouter(config, baseLogger, jwtService); err != nil {
 		baseLogger.Fatal(err)
 	}
 }
 
-func InitRouter(config *setting.Config, baseLogger *logger.Logger) error {
-	r, err := router.NewRouter(baseLogger)
+func InitRouter(config *setting.Config, baseLogger *logger.Logger, jwtservice *app.JWTService) error {
+	r, err := router.NewRouter(baseLogger, jwtservice)
 	if err != nil {
 		baseLogger.Error(err, "router.NewRouter in error")
 		return err
@@ -44,4 +49,10 @@ func InitRouter(config *setting.Config, baseLogger *logger.Logger) error {
 		return err
 	}
 	return nil
+}
+
+func InitJWTService(config *setting.Config) (*app.JWTService, error) {
+	jwtService := app.NewJWTService(config.Jwt) //创建的时候会出现错误码？？
+
+	return jwtService, nil
 }
