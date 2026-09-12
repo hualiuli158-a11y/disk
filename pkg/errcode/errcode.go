@@ -60,6 +60,10 @@ func (e *Error) StatusCode() int {
 		return http.StatusBadRequest
 	case NotFound.Code():
 		return http.StatusNotFound
+	case ErrNotFoundUser.Code():
+		return http.StatusNotFound
+	case InvalidCredentials.Code():
+		return http.StatusUnauthorized
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

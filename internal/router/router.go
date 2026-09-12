@@ -1,14 +1,21 @@
 package router
 
 import (
+	"disk/internal/handler"
 	"disk/internal/middleware"
 	"disk/pkg/app"
 	"disk/pkg/logger"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func NewRouter(baseLogger *logger.Logger, jwtservice *app.JWTService) (*gin.Engine, error) {
+func NewRouter(
+	baseLogger *logger.Logger,
+	jwtService *app.JWTService,
+	loginHandler *handler.LoginHandler,
+) (*gin.Engine, error) {
 	routerLogger := baseLogger.WithFields(logger.Fields{
 		"module": "router",
 	})
@@ -21,9 +28,11 @@ func NewRouter(baseLogger *logger.Logger, jwtservice *app.JWTService) (*gin.Engi
 			"hello": "world",
 		})
 	})
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.POST("/login", loginHandler.Login)
 
 	authorized := r.Group("/api")
-	authorized.Use(middleware.JWT(jwtservice))
+	authorized.Use(middleware.JWT(jwtService))
 	{
 		authorized.GET("/profile", func(c *gin.Context) {
 			c.JSON(200, gin.H{"message": "登录成功"})

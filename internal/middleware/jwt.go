@@ -21,7 +21,8 @@ func JWT(jwtService *app.JWTService) gin.HandlerFunc {
 			return
 		}
 
-		if _, err := jwtService.ParseToken(token); err != nil {
+		claims, err := jwtService.ParseToken(token)
+		if err != nil {
 			ecode := errcode.UnauthorizedTokenError
 			if errors.Is(err, jwt.ErrTokenExpired) {
 				ecode = errcode.UnauthorizedTokenTimeout
@@ -32,6 +33,7 @@ func JWT(jwtService *app.JWTService) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		c.Set("user_id", claims.UserID)
 
 		c.Next()
 	}

@@ -1,12 +1,22 @@
 package main
 
 import (
+	_ "disk/docs/swagger"
+	"disk/internal/database"
+	"disk/internal/handler"
+	"disk/internal/repository"
 	"disk/internal/router"
+	"disk/internal/service"
 	"disk/pkg/app"
 	"disk/pkg/logger"
 	"disk/pkg/setting"
+	"fmt"
 	"net"
 	"os"
+	"time"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 // main
@@ -17,6 +27,17 @@ import (
 // ├─ 创建 http.Server
 // └─ 监听系统信号并优雅关闭
 
+// @title Disk 存储服务 API
+// @version 1.0
+// @description Disk 后端服务接口文档，提供用户认证和文件存储能力。
+// @BasePath /
+// @schemes http https
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description 请输入 Bearer 加一个空格再加访问令牌，例如：Bearer eyJhbGciOiJIUzI1NiIs...
+//
+//go:generate go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g main.go -o docs/swagger --parseInternal
 func main() {
 	baseLogger := logger.NewLogger(os.Stdout)
 	config, err := setting.LoadConfig()
@@ -24,18 +45,35 @@ func main() {
 		baseLogger.Fatal(err)
 	}
 
-	jwtService, err := InitJWTService(config)
+	db, err := InitDatabase(config)
 	if err != nil {
 		baseLogger.Fatal(err)
 	}
+	if err := database.AutoMigrate(db); err != nil {
+		baseLogger.Fatal(err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		baseLogger.Fatal(err)
+	}
+	defer sqlDB.Close()
 
-	if err := InitRouter(config, baseLogger, jwtService); err != nil {
+	jwtService := InitJWTService(config)
+	loginService := InitService(db, jwtService)
+	loginHandler := handler.NewLoginHandler(loginService)
+
+	if err := InitRouter(config, baseLogger, jwtService, loginHandler); err != nil {
 		baseLogger.Fatal(err)
 	}
 }
 
-func InitRouter(config *setting.Config, baseLogger *logger.Logger, jwtservice *app.JWTService) error {
-	r, err := router.NewRouter(baseLogger, jwtservice)
+func InitRouter(
+	config *setting.Config,
+	baseLogger *logger.Logger,
+	jwtService *app.JWTService,
+	loginHandler *handler.LoginHandler,
+) error {
+	r, err := router.NewRouter(baseLogger, jwtService, loginHandler)
 	if err != nil {
 		baseLogger.Error(err, "router.NewRouter in error")
 		return err
@@ -51,8 +89,41 @@ func InitRouter(config *setting.Config, baseLogger *logger.Logger, jwtservice *a
 	return nil
 }
 
-func InitJWTService(config *setting.Config) (*app.JWTService, error) {
-	jwtService := app.NewJWTService(config.Jwt) //创建的时候会出现错误码？？
+func InitJWTService(config *setting.Config) *app.JWTService {
+	return app.NewJWTService(config.Jwt)
+}
 
-	return jwtService, nil
+func InitDatabase(config *setting.Config) (*gorm.DB, error) {
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		config.Database.Username,
+		config.Database.Password,
+		config.Database.Host, // 例如 127.0.0.1:3306
+		config.Database.DatabaseName,
+	)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("open mysql: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("get sql database: %w", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		return nil, fmt.Errorf("ping mysql: %w", err)
+	}
+
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	return db, nil
+}
+
+func InitService(db *gorm.DB, jwtService *app.JWTService) *service.LoginService {
+	userRepository := repository.NewUserRepository(db)
+	return service.NewLoginService(userRepository, jwtService)
 }

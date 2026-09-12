@@ -20,9 +20,6 @@ func LoadEnvironment() error {
 	}
 	return nil
 }
-func LoadDatabase() {
-
-}
 
 type Config struct {
 	Server   HttpConfig

@@ -8,7 +8,7 @@ import (
 )
 
 type Claims struct {
-	AppKey string `json:"app_key"`
+	UserID uint64 `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
@@ -26,11 +26,11 @@ func NewJWTService(config setting.JwtConfig) *JWTService {
 	}
 }
 
-func (s *JWTService) GenerateToken(appKey string) (string, error) {
+func (s *JWTService) GenerateToken(userID uint64) (string, error) {
 	now := time.Now()
 
 	claims := &Claims{
-		AppKey: appKey,
+		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(s.expire)),
 			IssuedAt:  jwt.NewNumericDate(now),
