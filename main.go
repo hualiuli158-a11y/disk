@@ -59,10 +59,13 @@ func main() {
 	defer sqlDB.Close()
 
 	jwtService := InitJWTService(config)
-	loginService := InitService(db, jwtService)
+	loginService := InitLoginService(db, jwtService)
 	loginHandler := handler.NewLoginHandler(loginService, baseLogger)
 
-	if err := InitRouter(config, baseLogger, jwtService, loginHandler); err != nil {
+	registerservice := InitRegisterService(db, jwtService)
+	registerHandler := handler.NewRegisterHandler(registerservice, baseLogger)
+
+	if err := InitRouter(config, baseLogger, jwtService, loginHandler, registerHandler); err != nil {
 		baseLogger.Fatal(err)
 	}
 }
@@ -72,8 +75,9 @@ func InitRouter(
 	baseLogger *logger.Logger,
 	jwtService *app.JWTService,
 	loginHandler *handler.LoginHandler,
+	registerHandler *handler.RegisterHandler,
 ) error {
-	r, err := router.NewRouter(baseLogger, jwtService, loginHandler)
+	r, err := router.NewRouter(baseLogger, jwtService, loginHandler, registerHandler)
 	if err != nil {
 		baseLogger.Error(err, "router.NewRouter in error")
 		return err
@@ -102,7 +106,9 @@ func InitDatabase(config *setting.Config) (*gorm.DB, error) {
 		config.Database.DatabaseName,
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		TranslateError: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("open mysql: %w", err)
 	}
@@ -123,7 +129,12 @@ func InitDatabase(config *setting.Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-func InitService(db *gorm.DB, jwtService *app.JWTService) *service.LoginService {
+func InitLoginService(db *gorm.DB, jwtService *app.JWTService) *service.LoginService {
 	userRepository := repository.NewUserRepository(db)
 	return service.NewLoginService(userRepository, jwtService)
+}
+
+func InitRegisterService(db *gorm.DB, jwtService *app.JWTService) *service.RegisterService {
+	userRepository := repository.NewUserRepository(db)
+	return service.NewRegisterService(userRepository, jwtService)
 }

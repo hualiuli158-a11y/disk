@@ -31,6 +31,24 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
     type: object
+  handler.RegisterRequest:
+    properties:
+      password:
+        example: password123
+        type: string
+      username:
+        example: alice
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handler.RegisterResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
 info:
   contact: {}
   description: Disk 后端服务接口文档，提供用户认证和文件存储能力。
@@ -69,6 +87,40 @@ paths:
           schema:
             $ref: '#/definitions/app.ErrorResponse'
       summary: 用户登录
+      tags:
+      - 认证
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码创建用户，成功后返回访问令牌。
+      parameters:
+      - description: 注册信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功
+          schema:
+            $ref: '#/definitions/handler.RegisterResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "409":
+          description: 用户名已存在
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 服务内部错误
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      summary: 用户注册
       tags:
       - 认证
 schemes:

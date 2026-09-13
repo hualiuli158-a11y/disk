@@ -15,6 +15,7 @@ func NewRouter(
 	baseLogger *logger.Logger,
 	jwtService *app.JWTService,
 	loginHandler *handler.LoginHandler,
+	registerHandler *handler.RegisterHandler,
 ) (*gin.Engine, error) {
 	routerLogger := baseLogger.WithFields(logger.Fields{
 		"module": "router",
@@ -30,13 +31,12 @@ func NewRouter(
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.POST("/login", loginHandler.Login)
+	r.POST("/register", registerHandler.Register)
 
 	authorized := r.Group("/api")
 	authorized.Use(middleware.JWT(jwtService))
 	{
-		authorized.GET("/profile", func(c *gin.Context) {
-			c.JSON(200, gin.H{"message": "登录成功"})
-		})
+		authorized.GET("/profile")
 	}
 	return r, nil
 }

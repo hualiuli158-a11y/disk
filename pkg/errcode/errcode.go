@@ -6,9 +6,9 @@ import (
 )
 
 type Error struct {
-	code    int      `json:"code"`
-	msg     string   `json:"msg"`
-	details []string `json:"details"`
+	code    int
+	msg     string
+	details []string
 }
 
 var codes = map[int]string{}
@@ -64,6 +64,8 @@ func (e *Error) StatusCode() int {
 		return http.StatusNotFound
 	case InvalidCredentials.Code():
 		return http.StatusUnauthorized
+	case UsernameAlreadyExists.Code():
+		return http.StatusConflict
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

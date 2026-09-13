@@ -9,7 +9,10 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrUserNotFound = errors.New("用户不存在")
+var (
+	ErrUserNotFound          = errors.New("用户不存在")
+	ErrUsernameAlreadyExists = errors.New("用户名已存在")
+)
 
 type UserRepository struct {
 	db *gorm.DB
@@ -19,6 +22,7 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// 查询用户
 func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 
@@ -30,4 +34,13 @@ func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*
 		return nil, err
 	}
 	return &user, nil
+}
+
+// 创建用户
+func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
+	err := r.db.WithContext(ctx).Create(user).Error
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return ErrUsernameAlreadyExists
+	}
+	return err
 }
