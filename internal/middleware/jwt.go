@@ -16,7 +16,7 @@ func JWT(jwtService *app.JWTService) gin.HandlerFunc {
 		token := getToken(c)
 		if token == "" {
 			response := app.NewResponse(c)
-			response.ToErrorResponse(errcode.InvalidParams)
+			response.ToErrorResponse(errcode.AuthenticationRequired)
 			c.Abort()
 			return
 		}

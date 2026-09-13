@@ -11,11 +11,17 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+// Handlers 集中保存 HTTP 路由需要的业务处理器。
+type Handlers struct {
+	Login    *handler.LoginHandler
+	Register *handler.RegisterHandler
+	Profile  *handler.ProfileHandler
+}
+
 func NewRouter(
 	baseLogger *logger.Logger,
 	jwtService *app.JWTService,
-	loginHandler *handler.LoginHandler,
-	registerHandler *handler.RegisterHandler,
+	handlers Handlers,
 ) (*gin.Engine, error) {
 	routerLogger := baseLogger.WithFields(logger.Fields{
 		"module": "router",
@@ -30,13 +36,13 @@ func NewRouter(
 		})
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	r.POST("/login", loginHandler.Login)
-	r.POST("/register", registerHandler.Register)
+	r.POST("/login", handlers.Login.Login)
+	r.POST("/register", handlers.Register.Register)
 
 	authorized := r.Group("/api")
 	authorized.Use(middleware.JWT(jwtService))
 	{
-		authorized.GET("/profile")
+		authorized.GET("/profile", handlers.Profile.Profile)
 	}
 	return r, nil
 }

@@ -31,6 +31,21 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
     type: object
+  handler.ProfileResponse:
+    properties:
+      create_time:
+        example: "2026-09-13T10:00:00+08:00"
+        type: string
+      id:
+        example: 42
+        type: integer
+      used_quota:
+        example: 1048576
+        type: integer
+      username:
+        example: alice
+        type: string
+    type: object
   handler.RegisterRequest:
     properties:
       password:
@@ -55,6 +70,33 @@ info:
   title: Disk 存储服务 API
   version: "1.0"
 paths:
+  /api/profile:
+    get:
+      description: 根据已通过 JWT 鉴权的用户 ID 获取当前用户的基本信息和已用存储配额
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            $ref: '#/definitions/handler.ProfileResponse'
+        "401":
+          description: 身份信息不存在或无效
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 服务内部错误
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取用户基本信息
+      tags:
+      - 认证
   /login:
     post:
       consumes:
@@ -128,7 +170,7 @@ schemes:
 - https
 securityDefinitions:
   BearerAuth:
-    description: 请输入 Bearer 加一个空格再加访问令牌，例如：Bearer eyJhbGciOiJIUzI1NiIs...
+    description: 请输入 Bearer、一个空格和访问令牌，例如：Bearer eyJhbGciOiJIUzI1NiIs...
     in: header
     name: Authorization
     type: apiKey

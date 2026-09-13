@@ -12,6 +12,49 @@
     },
     "basePath": "/",
     "paths": {
+        "/api/profile": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据已通过 JWT 鉴权的用户 ID 获取当前用户的基本信息和已用存储配额",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "获取用户基本信息",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ProfileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "身份信息不存在或无效",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "使用用户名和密码完成身份认证，成功后返回访问令牌。用户名不存在和密码错误统一返回“用户名或密码错误”。",
@@ -163,6 +206,27 @@
                 }
             }
         },
+        "handler.ProfileResponse": {
+            "type": "object",
+            "properties": {
+                "create_time": {
+                    "type": "string",
+                    "example": "2026-09-13T10:00:00+08:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "used_quota": {
+                    "type": "integer",
+                    "example": 1048576
+                },
+                "username": {
+                    "type": "string",
+                    "example": "alice"
+                }
+            }
+        },
         "handler.RegisterRequest": {
             "type": "object",
             "required": [
@@ -192,7 +256,7 @@
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "请输入 Bearer 加一个空格再加访问令牌，例如：Bearer eyJhbGciOiJIUzI1NiIs...",
+            "description": "请输入 Bearer、一个空格和访问令牌，例如：Bearer eyJhbGciOiJIUzI1NiIs...",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

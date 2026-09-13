@@ -22,7 +22,7 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// 查询用户
+// 通过名称查询查询用户
 func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 
@@ -33,6 +33,21 @@ func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*
 	if err != nil {
 		return nil, err
 	}
+	return &user, nil
+}
+
+// FindByID 根据主键查询用户。
+func (r *UserRepository) FindByID(ctx context.Context, id uint64) (*model.User, error) {
+	var user model.User
+
+	err := r.db.WithContext(ctx).First(&user, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	return &user, nil
 }
 

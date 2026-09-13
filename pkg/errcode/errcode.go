@@ -64,6 +64,8 @@ func (e *Error) StatusCode() int {
 		return http.StatusNotFound
 	case InvalidCredentials.Code():
 		return http.StatusUnauthorized
+	case AuthenticationRequired.Code():
+		return http.StatusUnauthorized
 	case UsernameAlreadyExists.Code():
 		return http.StatusConflict
 	case UnauthorizedAuthNotExist.Code():
