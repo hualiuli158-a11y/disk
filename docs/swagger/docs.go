@@ -16,6 +16,55 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/folders/root": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据 JWT 中的用户 ID 创建根目录；每个用户只能创建一个根目录。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件夹"
+                ],
+                "summary": "创建用户根目录",
+                "responses": {
+                    "200": {
+                        "description": "创建成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateRootFolderResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "根目录已存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "创建文件夹失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profile": {
             "get": {
                 "security": [
@@ -181,6 +230,27 @@ const docTemplate = `{
                 "msg": {
                     "type": "string",
                     "example": "用户名或密码错误"
+                }
+            }
+        },
+        "handler.CreateRootFolderResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-09-13T10:00:00+08:00"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "/"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 42
                 }
             }
         },

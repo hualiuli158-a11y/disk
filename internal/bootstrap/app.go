@@ -55,15 +55,18 @@ func New() (*App, error) {
 
 	jwtService := app.NewJWTService(config.Jwt)
 	userRepository := repository.NewUserRepository(db)
+	foldersRepository := repository.NewFoldersRepository(db)
 
 	loginService := service.NewLoginService(userRepository, jwtService)
 	registerService := service.NewRegisterService(userRepository, jwtService)
 	profileService := service.NewProfileService(userRepository)
+	foldersService := service.NewFoldersCreateService(foldersRepository)
 
 	handlers := router.Handlers{
 		Login:    handler.NewLoginHandler(loginService, baseLogger),
 		Register: handler.NewRegisterHandler(registerService, baseLogger),
 		Profile:  handler.NewProfileHandler(profileService, baseLogger),
+		Folders:  handler.NewFoldersHandler(foldersService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {
@@ -78,7 +81,7 @@ func New() (*App, error) {
 	}, nil
 }
 
-// Run 启动 HTTP 服务。
+// Run 启动 HTTP 服务。TODO
 func (a *App) Run() error {
 	addr := net.JoinHostPort(a.config.Server.Listen, a.config.Server.Port)
 	if err := a.router.Run(addr); err != nil {

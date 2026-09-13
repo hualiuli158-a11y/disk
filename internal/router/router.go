@@ -16,6 +16,7 @@ type Handlers struct {
 	Login    *handler.LoginHandler
 	Register *handler.RegisterHandler
 	Profile  *handler.ProfileHandler
+	Folders  *handler.FoldersHandler
 }
 
 func NewRouter(
@@ -43,6 +44,7 @@ func NewRouter(
 	authorized.Use(middleware.JWT(jwtService))
 	{
 		authorized.GET("/profile", handlers.Profile.Profile)
+		authorized.POST("/folders/root", handlers.Folders.CreateFolder)
 	}
 	return r, nil
 }

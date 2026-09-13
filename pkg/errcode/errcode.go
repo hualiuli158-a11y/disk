@@ -68,6 +68,14 @@ func (e *Error) StatusCode() int {
 		return http.StatusUnauthorized
 	case UsernameAlreadyExists.Code():
 		return http.StatusConflict
+	case ErrInvalidFolderName.Code():
+		return http.StatusBadRequest
+	case ErrParentNotFound.Code():
+		return http.StatusNotFound
+	case ErrFolderExists.Code():
+		return http.StatusConflict
+	case ErrCreateFolderFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():
