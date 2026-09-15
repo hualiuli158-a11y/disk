@@ -16,7 +16,7 @@ import (
 // @name Authorization
 // @description 请输入 Bearer、一个空格和访问令牌，例如：Bearer eyJhbGciOiJIUzI1NiIs...
 //
-//go:generate go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g main.go -o docs/swagger --parseInternal
+//go:generate go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g main.go -o docs/swagger --parseInternal
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)

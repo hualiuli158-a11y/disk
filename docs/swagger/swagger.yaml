@@ -13,19 +13,31 @@ definitions:
         example: 用户名或密码错误
         type: string
     type: object
-  handler.CreateRootFolderResponse:
+  handler.CreateFolderRequest:
     properties:
-      created_at:
-        example: "2026-09-13T10:00:00+08:00"
+      name:
+        example: 旅行照片
         type: string
-      id:
+      parent_id:
         example: 1
         type: integer
-      name:
-        example: /
+    required:
+    - name
+    - parent_id
+    type: object
+  handler.CreateFolderResponse:
+    properties:
+      created_at:
+        example: "2026-09-15T10:30:00+08:00"
         type: string
-      user_id:
-        example: 42
+      id:
+        example: 2
+        type: integer
+      name:
+        example: 旅行照片
+        type: string
+      parent_id:
+        example: 1
         type: integer
     type: object
   handler.LoginRequest:
@@ -85,26 +97,39 @@ info:
   title: Disk 存储服务 API
   version: "1.0"
 paths:
-  /api/folders/root:
+  /api/folders:
     post:
-      description: 根据 JWT 中的用户 ID 创建根目录；每个用户只能创建一个根目录。
+      consumes:
+      - application/json
+      description: 在当前登录用户拥有的父文件夹下创建子目录。文件夹名称不能为空，不能是“/”、“.”或“..”，也不能包含“/”或“\”；同一父目录下不能存在同名文件夹。
+      parameters:
+      - description: 子目录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateFolderRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 创建成功
           schema:
-            $ref: '#/definitions/handler.CreateRootFolderResponse'
+            $ref: '#/definitions/handler.CreateFolderResponse'
+        "400":
+          description: 请求参数或文件夹名称不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
         "401":
           description: 未提供有效的身份凭证
           schema:
             $ref: '#/definitions/app.ErrorResponse'
         "404":
-          description: 用户不存在
+          description: 父文件夹不存在
           schema:
             $ref: '#/definitions/app.ErrorResponse'
         "409":
-          description: 根目录已存在
+          description: 同一父目录下已存在同名文件夹
           schema:
             $ref: '#/definitions/app.ErrorResponse'
         "500":
@@ -113,7 +138,7 @@ paths:
             $ref: '#/definitions/app.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: 创建用户根目录
+      summary: 创建子目录
       tags:
       - 文件夹
   /api/profile:
@@ -181,7 +206,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用用户名和密码创建用户，成功后返回访问令牌。
+      description: 使用用户名和密码创建用户,同时为用户创建文件根目录,成功后返回访问令牌。
       parameters:
       - description: 注册信息
         in: body
