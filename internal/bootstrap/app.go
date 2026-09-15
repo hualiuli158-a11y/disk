@@ -53,20 +53,20 @@ func New() (*App, error) {
 		return nil, err
 	}
 
-	jwtService := app.NewJWTService(config.Jwt)
 	userRepository := repository.NewUserRepository(db)
 	foldersRepository := repository.NewFoldersRepository(db)
 
+	jwtService := app.NewJWTService(config.Jwt)
 	loginService := service.NewLoginService(userRepository, jwtService)
 	registerService := service.NewRegisterService(userRepository, jwtService)
 	profileService := service.NewProfileService(userRepository)
-	foldersService := service.NewFoldersCreateService(foldersRepository)
+	foldersService := service.NewChildFoldersCreateService(foldersRepository)
 
 	handlers := router.Handlers{
 		Login:    handler.NewLoginHandler(loginService, baseLogger),
 		Register: handler.NewRegisterHandler(registerService, baseLogger),
 		Profile:  handler.NewProfileHandler(profileService, baseLogger),
-		Folders:  handler.NewFoldersHandler(foldersService, baseLogger),
+		Folders:  handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

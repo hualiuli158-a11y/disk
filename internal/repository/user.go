@@ -57,7 +57,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id uint64) (*model.User, 
 }
 
 // 创建用户,创建用户并为用户创建根目录
-func (r *UserRepository) CreateWithRoot(ctx context.Context, user *model.User) error {
+func (r *UserRepository) CreateRoot(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// username 的唯一索引负责处理并发注册。
 		if err := tx.Create(user).Error; err != nil {
