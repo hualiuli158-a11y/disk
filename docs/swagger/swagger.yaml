@@ -40,6 +40,26 @@ definitions:
         example: 1
         type: integer
     type: object
+  handler.FolderListItemResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      parent_id:
+        type: integer
+    type: object
+  handler.ListFoldersResponse:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/handler.FolderListItemResponse'
+        type: array
+      root:
+        $ref: '#/definitions/handler.FolderListItemResponse'
+    type: object
   handler.LoginRequest:
     properties:
       password:
@@ -139,6 +159,33 @@ paths:
       security:
       - BearerAuth: []
       summary: 创建子目录
+      tags:
+      - 文件夹
+  /api/folders/root/children:
+    get:
+      description: 返回当前登录用户的根目录信息及其直接子目录，不递归加载更深层级。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            $ref: '#/definitions/handler.ListFoldersResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 根目录不存在
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 获取目录列表失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取根目录的子目录
       tags:
       - 文件夹
   /api/profile:

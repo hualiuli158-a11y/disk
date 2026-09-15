@@ -14,4 +14,6 @@ var (
 	ErrParentNotFound     = NewError(30002, "父文件夹不存在")
 	ErrFolderExists       = NewError(30003, "文件夹已存在")
 	ErrCreateFolderFailed = NewError(30004, "创建文件夹失败")
+	ErrRootFolderNotFound = NewError(30005, "根目录不存在")
+	ErrListFoldersFailed  = NewError(30006, "获取目录列表失败")
 )

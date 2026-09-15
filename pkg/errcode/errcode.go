@@ -76,6 +76,10 @@ func (e *Error) StatusCode() int {
 		return http.StatusConflict
 	case ErrCreateFolderFailed.Code():
 		return http.StatusInternalServerError
+	case ErrRootFolderNotFound.Code():
+		return http.StatusNotFound
+	case ErrListFoldersFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

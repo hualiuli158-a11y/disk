@@ -2,19 +2,18 @@ package repository
 
 import (
 	"context"
-	"disk/internal/model"
 	"errors"
 	"fmt"
+
+	"disk/internal/model"
 
 	"gorm.io/gorm"
 )
 
 var (
-	// ErrRootFolderAlreadyExists 表示当前用户已经拥有根目录，不能重复创建。
-	ErrRootFolderAlreadyExists = errors.New("用户根目录已存在")
-	ErrInvalidFolderName       = errors.New("文件夹名称不合法")
-	ErrParentNotFound          = errors.New("父目录不存在")
-	ErrFolderAlreadyExists     = errors.New("同名文件夹已存在")
+	ErrParentNotFound      = errors.New("父目录不存在")
+	ErrFolderAlreadyExists = errors.New("同名文件夹已存在")
+	ErrRootFolderNotFound  = errors.New("根目录不存在")
 )
 
 // FoldersRepository 负责文件夹数据的持久化操作。
@@ -64,4 +63,29 @@ func (r *FoldersRepository) CreateChildFolder(ctx context.Context, userID uint64
 	}
 
 	return &child, nil
+}
+
+// ListRootChildren 查询用户根目录及其直接子目录，不递归加载更深层级。
+func (r *FoldersRepository) ListRootChildren(ctx context.Context, userID uint64) (*model.Folder, error) {
+	var root model.Folder
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND parent_id IS NULL", userID).
+		First(&root).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, ErrRootFolderNotFound
+	case err != nil:
+		return nil, fmt.Errorf("find root folder: %w", err)
+	}
+
+	children := make([]model.Folder, 0)
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND parent_id = ?", userID, root.ID).
+		Order("created_at ASC, id ASC").
+		Find(&children).Error; err != nil {
+		return nil, fmt.Errorf("find root children: %w", err)
+	}
+
+	root.Children = children
+	return &root, nil
 }

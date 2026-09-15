@@ -1,16 +1,18 @@
 package handler
 
 import (
+	"errors"
+	"time"
+
 	"disk/internal/service"
 	"disk/pkg/app"
 	"disk/pkg/errcode"
 	"disk/pkg/logger"
-	"errors"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
+// 为父目录创建子目录
 type ChildFoldersCreateHandler struct {
 	folders    *service.ChildFoldersCreateService
 	baselogger *logger.Logger
@@ -93,4 +95,80 @@ func (ch *ChildFoldersCreateHandler) CreateChildFolder(c *gin.Context) {
 		CreatedAt: result.CreatedAt,
 	})
 	return
+}
+
+type ListFoldersHandler struct {
+	folders    *service.ListFoldersService
+	baselogger *logger.Logger
+}
+
+func NewListFoldersHandler(folders *service.ListFoldersService, baselogger *logger.Logger) *ListFoldersHandler {
+	return &ListFoldersHandler{folders: folders, baselogger: baselogger}
+}
+
+type FolderListItemResponse struct {
+	ID        uint64    `json:"id"`
+	ParentID  *uint64   `json:"parent_id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ListFoldersResponse struct {
+	Root     FolderListItemResponse   `json:"root"`
+	Children []FolderListItemResponse `json:"children"`
+}
+
+// ListFolders 返回当前用户的根目录及其直接子目录。
+// @Summary 获取根目录的子目录
+// @Description 返回当前登录用户的根目录信息及其直接子目录，不递归加载更深层级。
+// @Tags 文件夹
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} ListFoldersResponse "查询成功"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "根目录不存在"
+// @Failure 500 {object} app.ErrorResponse "获取目录列表失败"
+// @Router /api/folders/root/children [get]
+func (h *ListFoldersHandler) ListFolders(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("ListFolders invalid user_id")
+		return
+	}
+
+	result, err := h.folders.ListFolders(c.Request.Context(), userID)
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrRootFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrRootFolderNotFound)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("ListFolder failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrListFoldersFailed)
+		return
+	}
+
+	children := make([]FolderListItemResponse, 0, len(result.Children))
+	for _, child := range result.Children {
+		children = append(children, FolderListItemResponse{
+			ID:        child.ID,
+			ParentID:  child.ParentID,
+			Name:      child.Name,
+			CreatedAt: child.CreatedAt,
+		})
+	}
+
+	app.NewResponse(c).ToResponse(ListFoldersResponse{
+		Root: FolderListItemResponse{
+			ID:        result.Root.ID,
+			ParentID:  result.Root.ParentID,
+			Name:      result.Root.Name,
+			CreatedAt: result.Root.CreatedAt,
+		},
+		Children: children,
+	})
 }

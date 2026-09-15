@@ -61,12 +61,14 @@ func New() (*App, error) {
 	registerService := service.NewRegisterService(userRepository, jwtService)
 	profileService := service.NewProfileService(userRepository)
 	foldersService := service.NewChildFoldersCreateService(foldersRepository)
+	listFoldersService := service.NewListFoldersService(foldersRepository)
 
 	handlers := router.Handlers{
-		Login:    handler.NewLoginHandler(loginService, baseLogger),
-		Register: handler.NewRegisterHandler(registerService, baseLogger),
-		Profile:  handler.NewProfileHandler(profileService, baseLogger),
-		Folders:  handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
+		Login:       handler.NewLoginHandler(loginService, baseLogger),
+		Register:    handler.NewRegisterHandler(registerService, baseLogger),
+		Profile:     handler.NewProfileHandler(profileService, baseLogger),
+		Folders:     handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
+		ListFolders: handler.NewListFoldersHandler(listFoldersService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

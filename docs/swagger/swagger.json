@@ -81,6 +81,49 @@
                 }
             }
         },
+        "/api/folders/root/children": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "返回当前登录用户的根目录信息及其直接子目录，不递归加载更深层级。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件夹"
+                ],
+                "summary": "获取根目录的子目录",
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ListFoldersResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "根目录不存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "获取目录列表失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profile": {
             "get": {
                 "security": [
@@ -284,6 +327,37 @@
                 "parent_id": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "handler.FolderListItemResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.ListFoldersResponse": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.FolderListItemResponse"
+                    }
+                },
+                "root": {
+                    "$ref": "#/definitions/handler.FolderListItemResponse"
                 }
             }
         },
