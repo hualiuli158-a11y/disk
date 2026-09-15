@@ -34,7 +34,7 @@ func NewRegisterHandler(registerService *service.RegisterService, baseLogger *lo
 
 // Register 用户注册。
 // @Summary 用户注册
-// @Description 使用用户名和密码创建用户，成功后返回访问令牌。
+// @Description 使用用户名和密码创建用户,同时为用户创建文件根目录,成功后返回访问令牌。
 // @Tags 认证
 // @Accept json
 // @Produce json

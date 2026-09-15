@@ -27,7 +27,7 @@ func (f *fakeUserRegister) FindByUsername(context.Context, string) (*model.User,
 	return f.findUser, f.findErr
 }
 
-func (f *fakeUserRegister) Create(_ context.Context, user *model.User) error {
+func (f *fakeUserRegister) CreateRoot(_ context.Context, user *model.User) error {
 	f.createCalls++
 	f.createdUser = user
 	if f.createErr == nil {

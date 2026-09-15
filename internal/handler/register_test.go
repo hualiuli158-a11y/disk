@@ -28,7 +28,7 @@ func (f *handlerUserRegister) FindByUsername(context.Context, string) (*model.Us
 	return nil, repository.ErrUserNotFound
 }
 
-func (f *handlerUserRegister) Create(_ context.Context, user *model.User) error {
+func (f *handlerUserRegister) CreateRoot(_ context.Context, user *model.User) error {
 	user.ID = 42
 	return nil
 }

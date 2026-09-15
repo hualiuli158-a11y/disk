@@ -18,7 +18,8 @@ var (
 
 type UserRegister interface {
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
-	Create(ctx context.Context, user *model.User) error
+	// 创建一个用户，并且为这个用户创建根目录
+	CreateRoot(ctx context.Context, user *model.User) error
 }
 
 type RegisterService struct {
@@ -65,7 +66,7 @@ func (s *RegisterService) Register(ctx context.Context, input RegisterInput) (*R
 		Username: username,
 		Password: string(passwordHash),
 	}
-	if err := s.users.Create(ctx, user); err != nil {
+	if err := s.users.CreateRoot(ctx, user); err != nil {
 		if errors.Is(err, repository.ErrUsernameAlreadyExists) {
 			return nil, ErrUsernameAlreadyExists
 		}
