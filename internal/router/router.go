@@ -19,6 +19,7 @@ type Handlers struct {
 	Folders     *handler.ChildFoldersCreateHandler
 	ListFolders *handler.ListFoldersHandler
 	Rename      *handler.RenameFolderHandler
+	Children    *handler.ListFolderChildrenHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -45,9 +46,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.POST("/folders", handlers.Folders.CreateChildFolder)
 		authorized.GET("/folders/root/children", handlers.ListFolders.ListFolders)
 		authorized.PATCH("/folders/:id", handlers.Rename.RenameFolder)
-		authorized.GET("/folders/:id/children")
-		//GET /api/folders/:id/children
-		//GET /api/folders/:id/children：浏览任意目录
+		authorized.GET("/folders/:id/children", handlers.Children.ListChildren)
 		//DELETE /api/folders/:id：删除空目录
 	}
 	return r, nil

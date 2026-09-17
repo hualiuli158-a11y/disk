@@ -51,6 +51,15 @@ definitions:
       parent_id:
         type: integer
     type: object
+  handler.ListFolderChildrenResponse:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/handler.FolderListItemResponse'
+        type: array
+      folder:
+        $ref: '#/definitions/handler.FolderListItemResponse'
+    type: object
   handler.ListFoldersResponse:
     properties:
       children:
@@ -222,6 +231,43 @@ paths:
       security:
       - BearerAuth: []
       summary: 重命名文件夹
+      tags:
+      - 文件夹
+  /api/folders/{id}/children:
+    get:
+      description: 返回当前用户拥有的指定目录及其直接子目录，不递归加载更深层级。
+      parameters:
+      - description: 文件夹 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            $ref: '#/definitions/handler.ListFolderChildrenResponse'
+        "400":
+          description: 文件夹 ID 不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 文件夹不存在或无权访问
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 获取目录列表失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取指定目录的子目录
       tags:
       - 文件夹
   /api/folders/root/children:

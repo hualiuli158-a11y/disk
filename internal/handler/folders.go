@@ -258,3 +258,84 @@ func (r *RenameFolderHandler) RenameFolder(c *gin.Context) {
 		Name: result.Name,
 	})
 }
+
+type ListFolderChildrenHandler struct {
+	folders    *service.ListFolderChildrenService
+	baselogger *logger.Logger
+}
+
+func NewListFolderChildrenHandler(folders *service.ListFolderChildrenService, baselogger *logger.Logger) *ListFolderChildrenHandler {
+	return &ListFolderChildrenHandler{folders: folders, baselogger: baselogger}
+}
+
+type ListFolderChildrenResponse struct {
+	Folder   FolderListItemResponse   `json:"folder"`
+	Children []FolderListItemResponse `json:"children"`
+}
+
+// ListChildren 返回指定目录及其直接子目录。
+// @Summary 获取指定目录的子目录
+// @Description 返回当前用户拥有的指定目录及其直接子目录，不递归加载更深层级。
+// @Tags 文件夹
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "文件夹 ID"
+// @Success 200 {object} ListFolderChildrenResponse "查询成功"
+// @Failure 400 {object} app.ErrorResponse "文件夹 ID 不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件夹不存在或无权访问"
+// @Failure 500 {object} app.ErrorResponse "获取目录列表失败"
+// @Router /api/folders/{id}/children [get]
+func (h *ListFolderChildrenHandler) ListChildren(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("ListChildren invalid user_id")
+		return
+	}
+
+	folderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || folderID == 0 {
+		h.baselogger.WithContext(c.Request.Context()).Errorf("parse folder id failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.folders.ListChildren(c.Request.Context(), service.ListFolderChildrenInput{
+		UserID:   userID,
+		FolderID: folderID,
+	})
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotFound)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("list folder children failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrListFoldersFailed)
+		return
+	}
+
+	children := make([]FolderListItemResponse, 0, len(result.Children))
+	for _, child := range result.Children {
+		children = append(children, FolderListItemResponse{
+			ID:        child.ID,
+			ParentID:  child.ParentID,
+			Name:      child.Name,
+			CreatedAt: child.CreatedAt,
+		})
+	}
+
+	app.NewResponse(c).ToResponse(ListFolderChildrenResponse{
+		Folder: FolderListItemResponse{
+			ID:        result.Folder.ID,
+			ParentID:  result.Folder.ParentID,
+			Name:      result.Folder.Name,
+			CreatedAt: result.Folder.CreatedAt,
+		},
+		Children: children,
+	})
+}

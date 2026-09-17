@@ -181,3 +181,61 @@ func (s *RenameFolderService) RenameFolder(ctx context.Context, input RenameFold
 
 	return &RenameFolderOutput{ID: input.FolderID, Name: name}, nil
 }
+
+type ListFolderChildrenService struct {
+	folders FolderChildrenRepository
+}
+
+func NewListFolderChildrenService(folders FolderChildrenRepository) *ListFolderChildrenService {
+	return &ListFolderChildrenService{folders: folders}
+}
+
+type ListFolderChildrenInput struct {
+	UserID   uint64
+	FolderID uint64
+}
+
+type ListFolderChildrenOutput struct {
+	Folder   FolderListItem
+	Children []FolderListItem
+}
+
+func (s *ListFolderChildrenService) ListChildren(ctx context.Context, input ListFolderChildrenInput) (*ListFolderChildrenOutput, error) {
+	if input.UserID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if input.FolderID == 0 {
+		return nil, ErrFolderNotFound
+	}
+
+	folder, err := s.folders.ListChildren(ctx, input.UserID, input.FolderID)
+	switch {
+	case errors.Is(err, repository.ErrFolderNotFound):
+		return nil, ErrFolderNotFound
+	case err != nil:
+		return nil, err
+	}
+	if folder == nil {
+		return nil, ErrFolderNotFound
+	}
+
+	children := make([]FolderListItem, 0, len(folder.Children))
+	for _, child := range folder.Children {
+		children = append(children, FolderListItem{
+			ID:        child.ID,
+			ParentID:  child.ParentID,
+			Name:      child.Name,
+			CreatedAt: child.CreatedAt,
+		})
+	}
+
+	return &ListFolderChildrenOutput{
+		Folder: FolderListItem{
+			ID:        folder.ID,
+			ParentID:  folder.ParentID,
+			Name:      folder.Name,
+			CreatedAt: folder.CreatedAt,
+		},
+		Children: children,
+	}, nil
+}

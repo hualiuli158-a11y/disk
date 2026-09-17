@@ -44,6 +44,19 @@ func (f *handlerRootChildrenRepository) ListRootChildren(context.Context, uint64
 	return f.root, f.err
 }
 
+type handlerFolderChildrenRepository struct {
+	folder           *model.Folder
+	err              error
+	receivedUserID   uint64
+	receivedFolderID uint64
+}
+
+func (f *handlerFolderChildrenRepository) ListChildren(_ context.Context, userID uint64, folderID uint64) (*model.Folder, error) {
+	f.receivedUserID = userID
+	f.receivedFolderID = folderID
+	return f.folder, f.err
+}
+
 func TestListRootChildrenHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	createdAt := time.Date(2026, time.September, 15, 10, 30, 0, 0, time.FixedZone("CST", 8*60*60))
@@ -287,6 +300,131 @@ func TestRenameFolderHandler(t *testing.T) {
 			}
 			if repo.receivedUserID != 42 || repo.receivedFolderID != 7 || repo.receivedName != tt.wantName {
 				t.Fatalf("unexpected repository input: user=%d folder=%d name=%q", repo.receivedUserID, repo.receivedFolderID, repo.receivedName)
+			}
+		})
+	}
+}
+
+func TestListFolderChildrenHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	createdAt := time.Date(2026, time.September, 17, 10, 30, 0, 0, time.FixedZone("CST", 8*60*60))
+	parentID := uint64(1)
+	childParentID := uint64(7)
+	databaseErr := errors.New("database unavailable")
+
+	tests := []struct {
+		name       string
+		userID     any
+		folderID   string
+		repository *handlerFolderChildrenRepository
+		wantStatus int
+		wantCode   int
+		wantChild  bool
+	}{
+		{
+			name:     "success",
+			userID:   uint64(42),
+			folderID: "7",
+			repository: &handlerFolderChildrenRepository{folder: &model.Folder{
+				ID: 7, UserID: 42, ParentID: &parentID, Name: "照片", CreatedAt: createdAt,
+				Children: []model.Folder{{
+					ID: 8, UserID: 42, ParentID: &childParentID, Name: "旅行", CreatedAt: createdAt,
+				}},
+			}},
+			wantStatus: http.StatusOK,
+			wantChild:  true,
+		},
+		{
+			name:       "empty children",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerFolderChildrenRepository{folder: &model.Folder{ID: 7, UserID: 42, ParentID: &parentID, Name: "照片"}},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing user ID",
+			folderID:   "7",
+			repository: &handlerFolderChildrenRepository{},
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid folder ID",
+			userID:     uint64(42),
+			folderID:   "invalid",
+			repository: &handlerFolderChildrenRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "folder not found",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerFolderChildrenRepository{err: repository.ErrFolderNotFound},
+			wantStatus: http.StatusNotFound,
+			wantCode:   30007,
+		},
+		{
+			name:       "database error",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerFolderChildrenRepository{err: databaseErr},
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   30006,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			foldersService := service.NewListFolderChildrenService(tt.repository)
+			h := NewListFolderChildrenHandler(foldersService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.GET("/api/folders/:id/children", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.ListChildren(c)
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "/api/folders/"+tt.folderID+"/children", nil)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			var payload ListFolderChildrenResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode children response: %v", err)
+			}
+			if payload.Folder.ID != 7 || payload.Folder.Name != "照片" {
+				t.Fatalf("unexpected folder response: %+v", payload.Folder)
+			}
+			if payload.Children == nil {
+				t.Fatal("children must be an empty array instead of null")
+			}
+			if tt.repository.receivedUserID != 42 || tt.repository.receivedFolderID != 7 {
+				t.Fatalf("unexpected repository input: user=%d folder=%d", tt.repository.receivedUserID, tt.repository.receivedFolderID)
+			}
+			if tt.wantChild {
+				if len(payload.Children) != 1 || payload.Children[0].ID != 8 || payload.Children[0].Name != "旅行" {
+					t.Fatalf("unexpected children response: %+v", payload.Children)
+				}
+			} else if len(payload.Children) != 0 {
+				t.Fatalf("children length = %d, want 0", len(payload.Children))
 			}
 		})
 	}

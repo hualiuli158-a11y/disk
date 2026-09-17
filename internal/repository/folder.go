@@ -120,3 +120,28 @@ func (r *FoldersRepository) RenameFolder(ctx context.Context, userID uint64, fol
 
 	return nil
 }
+
+// ListChildren 查询指定目录及其直接子目录，不递归加载更深层级。
+func (r *FoldersRepository) ListChildren(ctx context.Context, userID uint64, folderID uint64) (*model.Folder, error) {
+	var folder model.Folder
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ?", folderID, userID).
+		First(&folder).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, ErrFolderNotFound
+	case err != nil:
+		return nil, fmt.Errorf("find folder %d: %w", folderID, err)
+	}
+
+	children := make([]model.Folder, 0)
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND parent_id = ?", userID, folderID).
+		Order("created_at ASC, id ASC").
+		Find(&children).Error; err != nil {
+		return nil, fmt.Errorf("find children of folder %d: %w", folderID, err)
+	}
+
+	folder.Children = children
+	return &folder, nil
+}
