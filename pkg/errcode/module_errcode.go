@@ -18,4 +18,7 @@ var (
 	ErrListFoldersFailed  = NewError(30006, "获取目录列表失败")
 	ErrFolderNotFound     = NewError(30007, "文件夹不存在")
 	ErrRenameFolderFailed = NewError(30008, "重命名文件夹失败")
+	ErrCannotDeleteRoot   = NewError(30009, "根目录不能删除")
+	ErrFolderNotEmpty     = NewError(30010, "文件夹不为空")
+	ErrDeleteFolderFailed = NewError(30011, "删除文件夹失败")
 )

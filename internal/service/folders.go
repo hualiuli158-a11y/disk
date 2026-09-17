@@ -17,6 +17,8 @@ var (
 	ErrFolderAlreadyExists = errors.New("同名文件夹已存在")
 	ErrRootFolderNotFound  = errors.New("根目录不存在")
 	ErrFolderNotFound      = errors.New("文件夹不存在")
+	ErrCannotDeleteRoot    = errors.New("根目录不能删除")
+	ErrFolderNotEmpty      = errors.New("文件夹不为空")
 )
 
 func normalizeFolderName(value string) (string, error) {
@@ -238,4 +240,40 @@ func (s *ListFolderChildrenService) ListChildren(ctx context.Context, input List
 		},
 		Children: children,
 	}, nil
+}
+
+type DeleteFolderService struct {
+	folders DeleteFolderRepository
+}
+
+func NewDeleteFolderService(folders DeleteFolderRepository) *DeleteFolderService {
+	return &DeleteFolderService{folders: folders}
+}
+
+type DeleteFolderInput struct {
+	UserID   uint64
+	FolderID uint64
+}
+
+func (s *DeleteFolderService) DeleteFolder(ctx context.Context, input DeleteFolderInput) error {
+	if input.UserID == 0 {
+		return ErrFolderUserNotFound
+	}
+	if input.FolderID == 0 {
+		return ErrFolderNotFound
+	}
+
+	err := s.folders.DeleteEmptyFolder(ctx, input.UserID, input.FolderID)
+	switch {
+	case errors.Is(err, repository.ErrFolderNotFound):
+		return ErrFolderNotFound
+	case errors.Is(err, repository.ErrCannotDeleteRoot):
+		return ErrCannotDeleteRoot
+	case errors.Is(err, repository.ErrFolderNotEmpty):
+		return ErrFolderNotEmpty
+	case err != nil:
+		return err
+	default:
+		return nil
+	}
 }

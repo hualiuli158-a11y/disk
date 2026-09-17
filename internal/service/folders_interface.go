@@ -21,3 +21,7 @@ type RenameFolderRepository interface {
 type FolderChildrenRepository interface {
 	ListChildren(ctx context.Context, userID uint64, folderID uint64) (*model.Folder, error)
 }
+
+type DeleteFolderRepository interface {
+	DeleteEmptyFolder(ctx context.Context, userID uint64, folderID uint64) error
+}

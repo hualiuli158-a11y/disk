@@ -8,6 +8,7 @@ import (
 	"disk/internal/model"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -15,6 +16,8 @@ var (
 	ErrFolderAlreadyExists = errors.New("同名文件夹已存在")
 	ErrRootFolderNotFound  = errors.New("根目录不存在")
 	ErrFolderNotFound      = errors.New("文件夹不存在")
+	ErrCannotDeleteRoot    = errors.New("根目录不能删除")
+	ErrFolderNotEmpty      = errors.New("文件夹不为空")
 )
 
 // FoldersRepository 负责文件夹数据的持久化操作。
@@ -144,4 +147,56 @@ func (r *FoldersRepository) ListChildren(ctx context.Context, userID uint64, fol
 
 	folder.Children = children
 	return &folder, nil
+}
+
+// DeleteEmptyFolder 删除当前用户拥有的空目录。根目录、包含子目录或文件的目录不能删除。
+func (r *FoldersRepository) DeleteEmptyFolder(ctx context.Context, userID uint64, folderID uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var folder model.Folder
+		err := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id", "parent_id").
+			Where("id = ? AND user_id = ?", folderID, userID).
+			First(&folder).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return ErrFolderNotFound
+		case err != nil:
+			return fmt.Errorf("find folder %d for delete: %w", folderID, err)
+		}
+
+		if folder.ParentID == nil {
+			return ErrCannotDeleteRoot
+		}
+
+		var childCount int64
+		if err := tx.Model(&model.Folder{}).
+			Where("parent_id = ?", folderID).
+			Count(&childCount).Error; err != nil {
+			return fmt.Errorf("count child folders of %d: %w", folderID, err)
+		}
+		if childCount > 0 {
+			return ErrFolderNotEmpty
+		}
+
+		var fileCount int64
+		if err := tx.Model(&model.File{}).
+			Where("folder_id = ?", folderID).
+			Count(&fileCount).Error; err != nil {
+			return fmt.Errorf("count files in folder %d: %w", folderID, err)
+		}
+		if fileCount > 0 {
+			return ErrFolderNotEmpty
+		}
+
+		result := tx.Where("id = ? AND user_id = ?", folderID, userID).Delete(&model.Folder{})
+		if result.Error != nil {
+			return fmt.Errorf("delete folder %d: %w", folderID, result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return ErrFolderNotFound
+		}
+
+		return nil
+	})
 }

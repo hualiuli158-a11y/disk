@@ -128,6 +128,65 @@ const docTemplate = `{
             }
         },
         "/api/folders/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除当前用户拥有的非根目录。目录中存在子目录或文件时不能删除。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件夹"
+                ],
+                "summary": "删除空目录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "文件夹 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "删除成功"
+                    },
+                    "400": {
+                        "description": "文件夹 ID 不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件夹不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "根目录不能删除或文件夹不为空",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "删除文件夹失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -338,4 +339,69 @@ func (h *ListFolderChildrenHandler) ListChildren(c *gin.Context) {
 		},
 		Children: children,
 	})
+}
+
+type DeleteFolderHandler struct {
+	folders    *service.DeleteFolderService
+	baselogger *logger.Logger
+}
+
+func NewDeleteFolderHandler(folders *service.DeleteFolderService, baselogger *logger.Logger) *DeleteFolderHandler {
+	return &DeleteFolderHandler{folders: folders, baselogger: baselogger}
+}
+
+// DeleteFolder 删除当前用户拥有的空目录。
+// @Summary 删除空目录
+// @Description 删除当前用户拥有的非根目录。目录中存在子目录或文件时不能删除。
+// @Tags 文件夹
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "文件夹 ID"
+// @Success 204 "删除成功"
+// @Failure 400 {object} app.ErrorResponse "文件夹 ID 不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件夹不存在或无权访问"
+// @Failure 409 {object} app.ErrorResponse "根目录不能删除或文件夹不为空"
+// @Failure 500 {object} app.ErrorResponse "删除文件夹失败"
+// @Router /api/folders/{id} [delete]
+func (h *DeleteFolderHandler) DeleteFolder(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("DeleteFolder invalid user_id")
+		return
+	}
+
+	folderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || folderID == 0 {
+		h.baselogger.WithContext(c.Request.Context()).Errorf("parse folder id failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	err = h.folders.DeleteFolder(c.Request.Context(), service.DeleteFolderInput{
+		UserID:   userID,
+		FolderID: folderID,
+	})
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotFound)
+		return
+	case errors.Is(err, service.ErrCannotDeleteRoot):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrCannotDeleteRoot)
+		return
+	case errors.Is(err, service.ErrFolderNotEmpty):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotEmpty)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("delete folder failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrDeleteFolderFailed)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
