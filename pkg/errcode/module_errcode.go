@@ -10,6 +10,14 @@ var (
 )
 
 var (
+	ErrInvalidFileName      = NewError(40001, "文件名不合法")
+	ErrUploadFolderNotFound = NewError(40002, "上传目录不存在")
+	ErrFileExists           = NewError(40003, "同名文件已存在")
+	ErrFileTooLarge         = NewError(40004, "文件超过上传大小限制")
+	ErrUploadFileFailed     = NewError(40005, "上传文件失败")
+)
+
+var (
 	ErrInvalidFolderName  = NewError(30001, "文件夹名称不合法")
 	ErrParentNotFound     = NewError(30002, "父文件夹不存在")
 	ErrFolderExists       = NewError(30003, "文件夹已存在")

@@ -25,6 +25,7 @@ type Config struct {
 	Server   HttpConfig
 	Database DatabaseConfig
 	Jwt      JwtConfig
+	Storage  StorageConfig
 }
 
 func LoadConfig() (*Config, error) {
@@ -58,6 +59,12 @@ func LoadConfig() (*Config, error) {
 			Issuer: strings.TrimSpace(os.Getenv("JWT_ISSUER")),
 			Expire: jwtExpire,
 		},
+		Storage: StorageConfig{
+			Root: strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
+		},
+	}
+	if config.Storage.Root == "" {
+		config.Storage.Root = "data"
 	}
 
 	if err := config.Validate(); err != nil {
@@ -94,4 +101,8 @@ type JwtConfig struct {
 	Secret string
 	Issuer string
 	Expire time.Duration
+}
+
+type StorageConfig struct {
+	Root string
 }

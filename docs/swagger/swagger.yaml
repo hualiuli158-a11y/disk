@@ -151,12 +151,85 @@ definitions:
       name:
         type: string
     type: object
+  handler.UploadFileResponse:
+    properties:
+      created_at:
+        example: "2026-09-17T10:30:00+08:00"
+        type: string
+      folder_id:
+        example: 10
+        type: integer
+      id:
+        example: 1
+        type: integer
+      name:
+        example: photo.jpg
+        type: string
+      sha256:
+        example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        type: string
+      size:
+        example: 1048576
+        type: integer
+    type: object
 info:
   contact: {}
   description: Disk 后端服务接口文档，提供用户认证和文件存储能力。
   title: Disk 存储服务 API
   version: "1.0"
 paths:
+  /api/files:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传文件并计算 SHA-256；相同内容复用物理文件，同一目录下不能存在同名文件。
+      parameters:
+      - description: 目标目录 ID
+        in: formData
+        name: folder_id
+        required: true
+        type: integer
+      - description: 待上传文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 上传成功
+          schema:
+            $ref: '#/definitions/handler.UploadFileResponse'
+        "400":
+          description: 请求参数或文件名不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 目标目录不存在或无权访问
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "409":
+          description: 目标目录下已存在同名文件
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "413":
+          description: 文件超过上传大小限制
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 上传文件失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 上传文件
+      tags:
+      - 文件
   /api/folders:
     post:
       consumes:

@@ -96,6 +96,16 @@ func (e *Error) StatusCode() int {
 		return http.StatusConflict
 	case ErrMoveFolderFailed.Code():
 		return http.StatusInternalServerError
+	case ErrInvalidFileName.Code():
+		return http.StatusBadRequest
+	case ErrUploadFolderNotFound.Code():
+		return http.StatusNotFound
+	case ErrFileExists.Code():
+		return http.StatusConflict
+	case ErrFileTooLarge.Code():
+		return http.StatusRequestEntityTooLarge
+	case ErrUploadFileFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

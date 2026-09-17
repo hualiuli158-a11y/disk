@@ -11,6 +11,7 @@ import (
 	"disk/internal/repository"
 	"disk/internal/router"
 	"disk/internal/service"
+	"disk/internal/storage"
 	"disk/pkg/app"
 	"disk/pkg/logger"
 	"disk/pkg/setting"
@@ -55,6 +56,11 @@ func New() (*App, error) {
 
 	userRepository := repository.NewUserRepository(db)
 	foldersRepository := repository.NewFoldersRepository(db)
+	filesRepository := repository.NewFilesRepository(db)
+	objectStorage, err := storage.NewStorage(config.Storage.Root)
+	if err != nil {
+		return nil, fmt.Errorf("create object storage: %w", err)
+	}
 
 	jwtService := app.NewJWTService(config.Jwt)
 	loginService := service.NewLoginService(userRepository, jwtService)
@@ -66,6 +72,7 @@ func New() (*App, error) {
 	listFolderChildrenService := service.NewListFolderChildrenService(foldersRepository)
 	deleteFolderService := service.NewDeleteFolderService(foldersRepository)
 	moveFolderService := service.NewMoveFolderService(foldersRepository)
+	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
 
 	handlers := router.Handlers{
 		Login:       handler.NewLoginHandler(loginService, baseLogger),
@@ -77,6 +84,7 @@ func New() (*App, error) {
 		Children:    handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
 		Delete:      handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
 		Move:        handler.NewMoveFolderHandler(moveFolderService, baseLogger),
+		UploadFile:  handler.NewUploadFileHandler(uploadFileService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {
