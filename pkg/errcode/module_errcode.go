@@ -20,6 +20,7 @@ var (
 	ErrDownloadFileFailed   = NewError(40008, "下载文件失败")
 	ErrDeleteFileFailed     = NewError(40009, "删除文件失败")
 	ErrRenameFileFailed     = NewError(40010, "重命名文件失败")
+	ErrMoveFileFailed       = NewError(40011, "移动文件失败")
 )
 
 var (

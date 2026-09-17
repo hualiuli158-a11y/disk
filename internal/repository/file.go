@@ -251,3 +251,53 @@ func (r *FilesRepository) RenameFile(ctx context.Context, userID uint64, fileID 
 	}
 	return nil
 }
+
+// MoveFile 将当前用户拥有的逻辑文件移动到新的目录。
+func (r *FilesRepository) MoveFile(ctx context.Context, userID uint64, fileID uint64, folderID uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var file model.File
+		err := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id", "folder_id", "name").
+			Where("id = ? AND user_id = ?", fileID, userID).
+			First(&file).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return ErrFileNotFound
+		case err != nil:
+			return fmt.Errorf("find file %d for move: %w", fileID, err)
+		}
+
+		var folder model.Folder
+		err = tx.
+			Clauses(clause.Locking{Strength: "SHARE"}).
+			Select("id").
+			Where("id = ? AND user_id = ?", folderID, userID).
+			First(&folder).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return ErrFileFolderNotFound
+		case err != nil:
+			return fmt.Errorf("find target folder %d for file move: %w", folderID, err)
+		}
+
+		if file.FolderID == folder.ID {
+			return nil
+		}
+
+		result := tx.Model(&model.File{}).
+			Where("id = ? AND user_id = ?", fileID, userID).
+			Update("folder_id", folder.ID)
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			return ErrFileAlreadyExists
+		}
+		if result.Error != nil {
+			return fmt.Errorf("move file %d to folder %d: %w", fileID, folder.ID, result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return ErrFileNotFound
+		}
+
+		return nil
+	})
+}

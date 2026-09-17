@@ -111,6 +111,22 @@ type handlerRenameFileRepository struct {
 	receivedName   string
 }
 
+type handlerMoveFileRepository struct {
+	err              error
+	called           bool
+	receivedUserID   uint64
+	receivedFileID   uint64
+	receivedFolderID uint64
+}
+
+func (f *handlerMoveFileRepository) MoveFile(_ context.Context, userID uint64, fileID uint64, folderID uint64) error {
+	f.called = true
+	f.receivedUserID = userID
+	f.receivedFileID = fileID
+	f.receivedFolderID = folderID
+	return f.err
+}
+
 func (f *handlerRenameFileRepository) RenameFile(_ context.Context, userID uint64, fileID uint64, name string) error {
 	f.called = true
 	f.receivedUserID = userID
@@ -867,6 +883,144 @@ func TestRenameFileHandler(t *testing.T) {
 			}
 			if repo.receivedUserID != 42 || repo.receivedFileID != 2 || repo.receivedName != tt.wantName {
 				t.Fatalf("unexpected repository input: user=%d file=%d name=%q", repo.receivedUserID, repo.receivedFileID, repo.receivedName)
+			}
+		})
+	}
+}
+
+func TestMoveFileHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	databaseErr := errors.New("database unavailable")
+
+	tests := []struct {
+		name          string
+		userID        any
+		fileID        string
+		body          string
+		repositoryErr error
+		wantStatus    int
+		wantCode      int
+		wantRepoCall  bool
+	}{
+		{
+			name:         "success",
+			userID:       uint64(42),
+			fileID:       "2",
+			body:         `{"folder_id":20}`,
+			wantStatus:   http.StatusOK,
+			wantRepoCall: true,
+		},
+		{
+			name:       "missing user ID",
+			fileID:     "2",
+			body:       `{"folder_id":20}`,
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid file ID",
+			userID:     uint64(42),
+			fileID:     "invalid",
+			body:       `{"folder_id":20}`,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "missing folder ID",
+			userID:     uint64(42),
+			fileID:     "2",
+			body:       `{}`,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:          "file not found",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"folder_id":20}`,
+			repositoryErr: repository.ErrFileNotFound,
+			wantStatus:    http.StatusNotFound,
+			wantCode:      40007,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "folder not found",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"folder_id":20}`,
+			repositoryErr: repository.ErrFileFolderNotFound,
+			wantStatus:    http.StatusNotFound,
+			wantCode:      30007,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "duplicate file name",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"folder_id":20}`,
+			repositoryErr: repository.ErrFileAlreadyExists,
+			wantStatus:    http.StatusConflict,
+			wantCode:      40003,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "database error",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"folder_id":20}`,
+			repositoryErr: databaseErr,
+			wantStatus:    http.StatusInternalServerError,
+			wantCode:      40011,
+			wantRepoCall:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &handlerMoveFileRepository{err: tt.repositoryErr}
+			filesService := service.NewMoveFileService(repo)
+			h := NewMoveFileHandler(filesService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.PATCH("/api/files/:id/move", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.MoveFile(c)
+			})
+
+			request := httptest.NewRequest(http.MethodPatch, "/api/files/"+tt.fileID+"/move", bytes.NewBufferString(tt.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if repo.called != tt.wantRepoCall {
+				t.Fatalf("repository called = %v, want %v", repo.called, tt.wantRepoCall)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			var payload MoveFileResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode move response: %v", err)
+			}
+			if payload.ID != 2 || payload.FolderID != 20 {
+				t.Fatalf("unexpected move response: %+v", payload)
+			}
+			if repo.receivedUserID != 42 || repo.receivedFileID != 2 || repo.receivedFolderID != 20 {
+				t.Fatalf("unexpected repository input: user=%d file=%d folder=%d", repo.receivedUserID, repo.receivedFileID, repo.receivedFolderID)
 			}
 		})
 	}

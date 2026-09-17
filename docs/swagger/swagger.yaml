@@ -111,6 +111,23 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
     type: object
+  handler.MoveFileRequest:
+    properties:
+      folder_id:
+        example: 20
+        type: integer
+    required:
+    - folder_id
+    type: object
+  handler.MoveFileResponse:
+    properties:
+      folder_id:
+        example: 20
+        type: integer
+      id:
+        example: 1
+        type: integer
+    type: object
   handler.MoveFolderRequest:
     properties:
       parent_id:
@@ -387,6 +404,55 @@ paths:
       security:
       - BearerAuth: []
       summary: 下载文件
+      tags:
+      - 文件
+  /api/files/{id}/move:
+    patch:
+      consumes:
+      - application/json
+      description: 将当前用户拥有的逻辑文件移动到新的目录，目标目录下不能存在同名文件。
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 目标目录
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MoveFileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 移动成功
+          schema:
+            $ref: '#/definitions/handler.MoveFileResponse'
+        "400":
+          description: 请求参数不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 文件或目标目录不存在或无权访问
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "409":
+          description: 目标目录下已存在同名文件
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 移动文件失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 移动文件
       tags:
       - 文件
   /api/folders:

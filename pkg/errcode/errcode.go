@@ -116,6 +116,8 @@ func (e *Error) StatusCode() int {
 		return http.StatusInternalServerError
 	case ErrRenameFileFailed.Code():
 		return http.StatusInternalServerError
+	case ErrMoveFileFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

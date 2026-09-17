@@ -77,6 +77,7 @@ func New() (*App, error) {
 	downloadFileService := service.NewDownloadFileService(filesRepository, objectStorage)
 	deleteFileService := service.NewDeleteFileService(filesRepository, objectStorage)
 	renameFileService := service.NewRenameFileService(filesRepository)
+	moveFileService := service.NewMoveFileService(filesRepository)
 
 	handlers := router.Handlers{
 		Login:        handler.NewLoginHandler(loginService, baseLogger),
@@ -93,6 +94,7 @@ func New() (*App, error) {
 		DownloadFile: handler.NewDownloadFileHandler(downloadFileService, baseLogger),
 		DeleteFile:   handler.NewDeleteFileHandler(deleteFileService, baseLogger),
 		RenameFile:   handler.NewRenameFileHandler(renameFileService, baseLogger),
+		MoveFile:     handler.NewMoveFileHandler(moveFileService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

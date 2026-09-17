@@ -340,6 +340,51 @@ func (s *RenameFileService) RenameFile(ctx context.Context, input RenameFileInpu
 	return &RenameFileOutput{ID: input.FileID, Name: name}, nil
 }
 
+type MoveFileService struct {
+	files MoveFileRepository
+}
+
+func NewMoveFileService(files MoveFileRepository) *MoveFileService {
+	return &MoveFileService{files: files}
+}
+
+type MoveFileInput struct {
+	UserID   uint64
+	FileID   uint64
+	FolderID uint64
+}
+
+type MoveFileOutput struct {
+	ID       uint64
+	FolderID uint64
+}
+
+func (s *MoveFileService) MoveFile(ctx context.Context, input MoveFileInput) (*MoveFileOutput, error) {
+	if input.UserID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if input.FileID == 0 {
+		return nil, ErrFileNotFound
+	}
+	if input.FolderID == 0 {
+		return nil, ErrFileFolderNotFound
+	}
+
+	err := s.files.MoveFile(ctx, input.UserID, input.FileID, input.FolderID)
+	switch {
+	case errors.Is(err, repository.ErrFileNotFound):
+		return nil, ErrFileNotFound
+	case errors.Is(err, repository.ErrFileFolderNotFound):
+		return nil, ErrFileFolderNotFound
+	case errors.Is(err, repository.ErrFileAlreadyExists):
+		return nil, ErrFileAlreadyExists
+	case err != nil:
+		return nil, err
+	}
+
+	return &MoveFileOutput{ID: input.FileID, FolderID: input.FolderID}, nil
+}
+
 func (r *countingHashReader) Read(buffer []byte) (int, error) {
 	n, err := r.reader.Read(buffer)
 	if n > 0 {

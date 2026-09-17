@@ -276,6 +276,82 @@
                 }
             }
         },
+        "/api/files/{id}/move": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "将当前用户拥有的逻辑文件移动到新的目录，目标目录下不能存在同名文件。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件"
+                ],
+                "summary": "移动文件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "文件 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "目标目录",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.MoveFileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "移动成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.MoveFileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件或目标目录不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "目标目录下已存在同名文件",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "移动文件失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/folders": {
             "post": {
                 "security": [
@@ -1026,6 +1102,31 @@
                 "access_token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "handler.MoveFileRequest": {
+            "type": "object",
+            "required": [
+                "folder_id"
+            ],
+            "properties": {
+                "folder_id": {
+                    "type": "integer",
+                    "example": 20
+                }
+            }
+        },
+        "handler.MoveFileResponse": {
+            "type": "object",
+            "properties": {
+                "folder_id": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
