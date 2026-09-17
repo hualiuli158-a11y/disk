@@ -16,4 +16,6 @@ var (
 	ErrCreateFolderFailed = NewError(30004, "创建文件夹失败")
 	ErrRootFolderNotFound = NewError(30005, "根目录不存在")
 	ErrListFoldersFailed  = NewError(30006, "获取目录列表失败")
+	ErrFolderNotFound     = NewError(30007, "文件夹不存在")
+	ErrRenameFolderFailed = NewError(30008, "重命名文件夹失败")
 )

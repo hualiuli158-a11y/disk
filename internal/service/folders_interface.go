@@ -13,3 +13,7 @@ type FoldersRepository interface {
 type RootChildrenRepository interface {
 	ListRootChildren(ctx context.Context, userID uint64) (*model.Folder, error)
 }
+
+type RenameFolderRepository interface {
+	RenameFolder(ctx context.Context, userID uint64, folderID uint64, name string) error
+}

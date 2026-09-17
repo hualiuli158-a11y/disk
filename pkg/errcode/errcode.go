@@ -80,6 +80,10 @@ func (e *Error) StatusCode() int {
 		return http.StatusNotFound
 	case ErrListFoldersFailed.Code():
 		return http.StatusInternalServerError
+	case ErrFolderNotFound.Code():
+		return http.StatusNotFound
+	case ErrRenameFolderFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

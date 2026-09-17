@@ -14,6 +14,7 @@ var (
 	ErrParentNotFound      = errors.New("父目录不存在")
 	ErrFolderAlreadyExists = errors.New("同名文件夹已存在")
 	ErrRootFolderNotFound  = errors.New("根目录不存在")
+	ErrFolderNotFound      = errors.New("文件夹不存在")
 )
 
 // FoldersRepository 负责文件夹数据的持久化操作。
@@ -88,4 +89,34 @@ func (r *FoldersRepository) ListRootChildren(ctx context.Context, userID uint64)
 
 	root.Children = children
 	return &root, nil
+}
+
+func (r *FoldersRepository) RenameFolder(ctx context.Context, userID uint64, folderID uint64, name string) error {
+	result := r.db.WithContext(ctx).
+		Model(&model.Folder{}).
+		Where("id = ? AND user_id = ? AND parent_id IS NOT NULL", folderID, userID).
+		Update("name", name)
+
+	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+		return ErrFolderAlreadyExists
+	}
+	if result.Error != nil {
+		return fmt.Errorf("rename folder %d: %w", folderID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		// MySQL 在名称没有发生变化时可能报告 0 行受影响；此时再次确认目录是否存在，
+		// 使重复提交相同名称保持幂等。
+		var count int64
+		if err := r.db.WithContext(ctx).
+			Model(&model.Folder{}).
+			Where("id = ? AND user_id = ? AND parent_id IS NOT NULL", folderID, userID).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("check folder %d after rename: %w", folderID, err)
+		}
+		if count == 0 {
+			return ErrFolderNotFound
+		}
+	}
+
+	return nil
 }

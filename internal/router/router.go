@@ -18,6 +18,7 @@ type Handlers struct {
 	Profile     *handler.ProfileHandler
 	Folders     *handler.ChildFoldersCreateHandler
 	ListFolders *handler.ListFoldersHandler
+	Rename      *handler.RenameFolderHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -43,9 +44,10 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.GET("/profile", handlers.Profile.Profile)
 		authorized.POST("/folders", handlers.Folders.CreateChildFolder)
 		authorized.GET("/folders/root/children", handlers.ListFolders.ListFolders)
-		//GET /api/folders/root/children：让客户端获得根目录和第一层目录
+		authorized.PATCH("/folders/:id", handlers.Rename.RenameFolder)
+		authorized.GET("/folders/:id/children")
+		//GET /api/folders/:id/children
 		//GET /api/folders/:id/children：浏览任意目录
-		//PATCH /api/folders/:id：重命名目录
 		//DELETE /api/folders/:id：删除空目录
 	}
 	return r, nil

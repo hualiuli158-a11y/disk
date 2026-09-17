@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"disk/internal/service"
@@ -170,5 +171,90 @@ func (h *ListFoldersHandler) ListFolders(c *gin.Context) {
 			CreatedAt: result.Root.CreatedAt,
 		},
 		Children: children,
+	})
+}
+
+type RenameFolderHandler struct {
+	folders    *service.RenameFolderService
+	baselogger *logger.Logger
+}
+
+func NewRenameFolderHandler(folders *service.RenameFolderService, baselogger *logger.Logger) *RenameFolderHandler {
+	return &RenameFolderHandler{folders: folders, baselogger: baselogger}
+}
+
+type RenameFolderRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type RenameFolderResponse struct {
+	ID   uint64 `json:"id"`
+	Name string `json:"name"`
+}
+
+// RenameFolder 重命名当前用户拥有的非根目录。
+// @Summary 重命名文件夹
+// @Description 重命名当前用户拥有的非根目录。文件夹名称遵循创建目录时的相同规则，同一父目录下不能存在同名文件夹。
+// @Tags 文件夹
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "文件夹 ID"
+// @Param request body RenameFolderRequest true "新的文件夹名称"
+// @Success 200 {object} RenameFolderResponse "重命名成功"
+// @Failure 400 {object} app.ErrorResponse "请求参数或文件夹名称不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件夹不存在、无权访问或为根目录"
+// @Failure 409 {object} app.ErrorResponse "同一父目录下已存在同名文件夹"
+// @Failure 500 {object} app.ErrorResponse "重命名文件夹失败"
+// @Router /api/folders/{id} [patch]
+func (r *RenameFolderHandler) RenameFolder(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		r.baselogger.WithContext(c.Request.Context()).Errorf("RenameFolder invalid User_id")
+		return
+	}
+
+	folderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || folderID == 0 {
+		r.baselogger.WithContext(c.Request.Context()).Errorf("parse folder id failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+	var req RenameFolderRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
+		r.baselogger.WithContext(c.Request.Context()).Errorf("RenameFolder invalid request body")
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+	result, err := r.folders.RenameFolder(c.Request.Context(), service.RenameFolderInput{
+		UserID:   userID,
+		FolderID: folderID,
+		Name:     req.Name,
+	})
+	switch {
+	case errors.Is(err, service.ErrInvalidFolderName):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrInvalidFolderName)
+		return
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotFound)
+		return
+	case errors.Is(err, service.ErrFolderAlreadyExists):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderExists)
+		return
+	case err != nil:
+		r.baselogger.WithContext(c.Request.Context()).Errorf("folder.RenameFolder failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrRenameFolderFailed)
+		return
+	}
+
+	app.NewResponse(c).ToResponse(RenameFolderResponse{
+		ID:   result.ID,
+		Name: result.Name,
 	})
 }
