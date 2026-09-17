@@ -75,6 +75,7 @@ func New() (*App, error) {
 	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
 	listFilesService := service.NewListFilesService(filesRepository)
 	downloadFileService := service.NewDownloadFileService(filesRepository, objectStorage)
+	deleteFileService := service.NewDeleteFileService(filesRepository, objectStorage)
 
 	handlers := router.Handlers{
 		Login:        handler.NewLoginHandler(loginService, baseLogger),
@@ -89,6 +90,7 @@ func New() (*App, error) {
 		UploadFile:   handler.NewUploadFileHandler(uploadFileService, baseLogger),
 		ListFiles:    handler.NewListFilesHandler(listFilesService, baseLogger),
 		DownloadFile: handler.NewDownloadFileHandler(downloadFileService, baseLogger),
+		DeleteFile:   handler.NewDeleteFileHandler(deleteFileService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

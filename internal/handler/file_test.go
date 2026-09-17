@@ -69,6 +69,7 @@ type handlerObjectStorage struct {
 	savedKey    string
 	savedData   []byte
 	deletedKeys []string
+	deleteErr   error
 	openData    []byte
 	openErr     error
 	openedKey   string
@@ -92,6 +93,20 @@ type handlerDownloadFileRepository struct {
 	err            error
 	receivedUserID uint64
 	receivedFileID uint64
+}
+
+type handlerDeleteFileRepository struct {
+	storageKey     string
+	deletePhysical bool
+	err            error
+	receivedUserID uint64
+	receivedFileID uint64
+}
+
+func (f *handlerDeleteFileRepository) DeleteFile(_ context.Context, userID uint64, fileID uint64) (string, bool, error) {
+	f.receivedUserID = userID
+	f.receivedFileID = fileID
+	return f.storageKey, f.deletePhysical, f.err
 }
 
 func (f *handlerDownloadFileRepository) FindFileForDownload(_ context.Context, userID uint64, fileID uint64) (*model.File, error) {
@@ -123,7 +138,7 @@ func (s *handlerObjectStorage) Open(_ context.Context, key string) (io.ReadClose
 
 func (s *handlerObjectStorage) Delete(_ context.Context, key string) error {
 	s.deletedKeys = append(s.deletedKeys, key)
-	return nil
+	return s.deleteErr
 }
 
 func TestUploadFileHandler(t *testing.T) {
@@ -580,6 +595,132 @@ func TestDownloadFileHandler(t *testing.T) {
 			}
 			if objects.openedKey != "objects/aa/value" || tt.repository.receivedUserID != 42 || tt.repository.receivedFileID != 2 {
 				t.Fatalf("unexpected download inputs: key=%q user=%d file=%d", objects.openedKey, tt.repository.receivedUserID, tt.repository.receivedFileID)
+			}
+		})
+	}
+}
+
+func TestDeleteFileHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	databaseErr := errors.New("database unavailable")
+	cleanupErr := errors.New("cleanup unavailable")
+
+	tests := []struct {
+		name          string
+		userID        any
+		fileID        string
+		repository    *handlerDeleteFileRepository
+		cleanupErr    error
+		wantStatus    int
+		wantCode      int
+		wantDeleteKey string
+	}{
+		{
+			name:       "success keeps shared physical file",
+			userID:     uint64(42),
+			fileID:     "2",
+			repository: &handlerDeleteFileRepository{},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:   "success deletes unreferenced physical file",
+			userID: uint64(42),
+			fileID: "2",
+			repository: &handlerDeleteFileRepository{
+				storageKey: "objects/aa/value", deletePhysical: true,
+			},
+			wantStatus:    http.StatusNoContent,
+			wantDeleteKey: "objects/aa/value",
+		},
+		{
+			name:   "cleanup failure preserves successful deletion",
+			userID: uint64(42),
+			fileID: "2",
+			repository: &handlerDeleteFileRepository{
+				storageKey: "objects/aa/value", deletePhysical: true,
+			},
+			cleanupErr:    cleanupErr,
+			wantStatus:    http.StatusNoContent,
+			wantDeleteKey: "objects/aa/value",
+		},
+		{
+			name:       "missing user ID",
+			fileID:     "2",
+			repository: &handlerDeleteFileRepository{},
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid file ID",
+			userID:     uint64(42),
+			fileID:     "invalid",
+			repository: &handlerDeleteFileRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "file not found",
+			userID:     uint64(42),
+			fileID:     "2",
+			repository: &handlerDeleteFileRepository{err: repository.ErrFileNotFound},
+			wantStatus: http.StatusNotFound,
+			wantCode:   40007,
+		},
+		{
+			name:       "database error",
+			userID:     uint64(42),
+			fileID:     "2",
+			repository: &handlerDeleteFileRepository{err: databaseErr},
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   40009,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := &handlerObjectStorage{deleteErr: tt.cleanupErr}
+			filesService := service.NewDeleteFileService(tt.repository, objects)
+			h := NewDeleteFileHandler(filesService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.DELETE("/api/files/:id", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.DeleteFile(c)
+			})
+
+			request := httptest.NewRequest(http.MethodDelete, "/api/files/"+tt.fileID, nil)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			if response.Body.Len() != 0 {
+				t.Fatalf("204 response body must be empty, got %q", response.Body.String())
+			}
+			if tt.repository.receivedUserID != 42 || tt.repository.receivedFileID != 2 {
+				t.Fatalf("unexpected repository input: user=%d file=%d", tt.repository.receivedUserID, tt.repository.receivedFileID)
+			}
+			if tt.wantDeleteKey == "" {
+				if len(objects.deletedKeys) != 0 {
+					t.Fatalf("unexpected deleted keys: %v", objects.deletedKeys)
+				}
+			} else if len(objects.deletedKeys) != 1 || objects.deletedKeys[0] != tt.wantDeleteKey {
+				t.Fatalf("deleted keys = %v, want %q", objects.deletedKeys, tt.wantDeleteKey)
 			}
 		})
 	}

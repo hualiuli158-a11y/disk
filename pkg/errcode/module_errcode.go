@@ -18,6 +18,7 @@ var (
 	ErrListFilesFailed      = NewError(40006, "获取文件列表失败")
 	ErrFileNotFound         = NewError(40007, "文件不存在")
 	ErrDownloadFileFailed   = NewError(40008, "下载文件失败")
+	ErrDeleteFileFailed     = NewError(40009, "删除文件失败")
 )
 
 var (

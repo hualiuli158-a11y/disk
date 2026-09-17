@@ -112,6 +112,8 @@ func (e *Error) StatusCode() int {
 		return http.StatusNotFound
 	case ErrDownloadFileFailed.Code():
 		return http.StatusInternalServerError
+	case ErrDeleteFileFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

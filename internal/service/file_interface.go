@@ -27,6 +27,10 @@ type DownloadFileRepository interface {
 	FindFileForDownload(ctx context.Context, userID uint64, fileID uint64) (*model.File, error)
 }
 
+type DeleteFileRepository interface {
+	DeleteFile(ctx context.Context, userID uint64, fileID uint64) (storageKey string, deletePhysical bool, err error)
+}
+
 type ObjectStorage interface {
 	Save(ctx context.Context, key string, reader io.Reader) error
 	Open(ctx context.Context, key string) (io.ReadCloser, error)

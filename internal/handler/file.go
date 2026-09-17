@@ -270,3 +270,59 @@ func (h *DownloadFileHandler) DownloadFile(c *gin.Context) {
 		h.baselogger.WithContext(c.Request.Context()).Errorf("stream downloaded file failed: %v", err)
 	}
 }
+
+type DeleteFileHandler struct {
+	files      *service.DeleteFileService
+	baselogger *logger.Logger
+}
+
+func NewDeleteFileHandler(files *service.DeleteFileService, baselogger *logger.Logger) *DeleteFileHandler {
+	return &DeleteFileHandler{files: files, baselogger: baselogger}
+}
+
+// DeleteFile 删除当前用户拥有的逻辑文件。
+// @Summary 删除文件
+// @Description 删除逻辑文件并扣减用户额度；物理文件没有其他引用时同时清理底层存储对象。
+// @Tags 文件
+// @Security BearerAuth
+// @Param id path int true "文件 ID"
+// @Success 204 "删除成功"
+// @Failure 400 {object} app.ErrorResponse "文件 ID 不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件不存在或无权访问"
+// @Failure 500 {object} app.ErrorResponse "删除文件失败"
+// @Router /api/files/{id} [delete]
+func (h *DeleteFileHandler) DeleteFile(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("DeleteFile invalid user_id")
+		return
+	}
+
+	fileID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || fileID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.files.DeleteFile(c.Request.Context(), userID, fileID)
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFileNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileNotFound)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("delete file failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrDeleteFileFailed)
+		return
+	}
+	if result.CleanupError != nil {
+		h.baselogger.WithContext(c.Request.Context()).Errorf("cleanup orphan storage object failed: %v", result.CleanupError)
+	}
+
+	c.Status(http.StatusNoContent)
+}

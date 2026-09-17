@@ -252,6 +252,45 @@ func (s *DownloadFileService) DownloadFile(ctx context.Context, userID uint64, f
 	}, nil
 }
 
+type DeleteFileService struct {
+	files   DeleteFileRepository
+	objects ObjectStorage
+}
+
+func NewDeleteFileService(files DeleteFileRepository, objects ObjectStorage) *DeleteFileService {
+	return &DeleteFileService{files: files, objects: objects}
+}
+
+type DeleteFileOutput struct {
+	CleanupError error
+}
+
+func (s *DeleteFileService) DeleteFile(ctx context.Context, userID uint64, fileID uint64) (*DeleteFileOutput, error) {
+	if userID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if fileID == 0 {
+		return nil, ErrFileNotFound
+	}
+
+	storageKey, deletePhysical, err := s.files.DeleteFile(ctx, userID, fileID)
+	switch {
+	case errors.Is(err, repository.ErrUserNotFound):
+		return nil, ErrFolderUserNotFound
+	case errors.Is(err, repository.ErrFileNotFound):
+		return nil, ErrFileNotFound
+	case err != nil:
+		return nil, err
+	}
+
+	output := &DeleteFileOutput{}
+	if deletePhysical && storageKey != "" {
+		// 数据库已经提交；存储清理失败时保留成功语义，交由日志和后续清理任务处理孤儿对象。
+		output.CleanupError = s.objects.Delete(context.WithoutCancel(ctx), storageKey)
+	}
+	return output, nil
+}
+
 func (r *countingHashReader) Read(buffer []byte) (int, error) {
 	n, err := r.reader.Read(buffer)
 	if n > 0 {

@@ -25,6 +25,7 @@ type Handlers struct {
 	UploadFile   *handler.UploadFileHandler
 	ListFiles    *handler.ListFilesHandler
 	DownloadFile *handler.DownloadFileHandler
+	DeleteFile   *handler.DeleteFileHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -57,6 +58,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.POST("/files", handlers.UploadFile.UploadFile)
 		authorized.GET("/folders/:id/files", handlers.ListFiles.ListFiles)
 		authorized.GET("/files/:id/download", handlers.DownloadFile.DownloadFile)
+		authorized.DELETE("/files/:id", handlers.DeleteFile.DeleteFile)
 	}
 	return r, nil
 }
