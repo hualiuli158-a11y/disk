@@ -16,6 +16,8 @@ var (
 	ErrFileTooLarge         = NewError(40004, "文件超过上传大小限制")
 	ErrUploadFileFailed     = NewError(40005, "上传文件失败")
 	ErrListFilesFailed      = NewError(40006, "获取文件列表失败")
+	ErrFileNotFound         = NewError(40007, "文件不存在")
+	ErrDownloadFileFailed   = NewError(40008, "下载文件失败")
 )
 
 var (

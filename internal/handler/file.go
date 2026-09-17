@@ -2,6 +2,9 @@ package handler
 
 import (
 	"errors"
+	"io"
+	"mime"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -196,4 +199,74 @@ func (h *ListFilesHandler) ListFiles(c *gin.Context) {
 	}
 
 	app.NewResponse(c).ToResponse(ListFilesResponse{FolderID: result.FolderID, Files: files})
+}
+
+type DownloadFileHandler struct {
+	files      *service.DownloadFileService
+	baselogger *logger.Logger
+}
+
+func NewDownloadFileHandler(files *service.DownloadFileService, baselogger *logger.Logger) *DownloadFileHandler {
+	return &DownloadFileHandler{files: files, baselogger: baselogger}
+}
+
+// DownloadFile 下载当前用户拥有的文件。
+// @Summary 下载文件
+// @Description 根据逻辑文件 ID 下载当前用户拥有的文件，客户端不能指定底层存储 Key。
+// @Tags 文件
+// @Produce application/octet-stream
+// @Security BearerAuth
+// @Param id path int true "文件 ID"
+// @Success 200 {file} binary "文件内容"
+// @Failure 400 {object} app.ErrorResponse "文件 ID 不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件不存在或无权访问"
+// @Failure 500 {object} app.ErrorResponse "下载文件失败"
+// @Router /api/files/{id}/download [get]
+func (h *DownloadFileHandler) DownloadFile(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("DownloadFile invalid user_id")
+		return
+	}
+
+	fileID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || fileID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.files.DownloadFile(c.Request.Context(), userID, fileID)
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFileNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileNotFound)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("download file failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrDownloadFileFailed)
+		return
+	}
+	defer func() {
+		if err := result.Content.Close(); err != nil {
+			h.baselogger.WithContext(c.Request.Context()).Errorf("close downloaded file failed: %v", err)
+		}
+	}()
+
+	disposition := mime.FormatMediaType("attachment", map[string]string{"filename": result.Name})
+	if disposition == "" {
+		disposition = "attachment"
+	}
+	c.Header("Content-Disposition", disposition)
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Length", strconv.FormatInt(result.Size, 10))
+	c.Status(http.StatusOK)
+	if _, err := io.Copy(c.Writer, result.Content); err != nil {
+		// 响应头可能已经发送，此时不能再改写为 JSON 错误响应。
+		h.baselogger.WithContext(c.Request.Context()).Errorf("stream downloaded file failed: %v", err)
+	}
 }

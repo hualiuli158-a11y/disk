@@ -74,19 +74,21 @@ func New() (*App, error) {
 	moveFolderService := service.NewMoveFolderService(foldersRepository)
 	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
 	listFilesService := service.NewListFilesService(filesRepository)
+	downloadFileService := service.NewDownloadFileService(filesRepository, objectStorage)
 
 	handlers := router.Handlers{
-		Login:       handler.NewLoginHandler(loginService, baseLogger),
-		Register:    handler.NewRegisterHandler(registerService, baseLogger),
-		Profile:     handler.NewProfileHandler(profileService, baseLogger),
-		Folders:     handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
-		ListFolders: handler.NewListFoldersHandler(listFoldersService, baseLogger),
-		Rename:      handler.NewRenameFolderHandler(renameFolderService, baseLogger),
-		Children:    handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
-		Delete:      handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
-		Move:        handler.NewMoveFolderHandler(moveFolderService, baseLogger),
-		UploadFile:  handler.NewUploadFileHandler(uploadFileService, baseLogger),
-		ListFiles:   handler.NewListFilesHandler(listFilesService, baseLogger),
+		Login:        handler.NewLoginHandler(loginService, baseLogger),
+		Register:     handler.NewRegisterHandler(registerService, baseLogger),
+		Profile:      handler.NewProfileHandler(profileService, baseLogger),
+		Folders:      handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
+		ListFolders:  handler.NewListFoldersHandler(listFoldersService, baseLogger),
+		Rename:       handler.NewRenameFolderHandler(renameFolderService, baseLogger),
+		Children:     handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
+		Delete:       handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
+		Move:         handler.NewMoveFolderHandler(moveFolderService, baseLogger),
+		UploadFile:   handler.NewUploadFileHandler(uploadFileService, baseLogger),
+		ListFiles:    handler.NewListFilesHandler(listFilesService, baseLogger),
+		DownloadFile: handler.NewDownloadFileHandler(downloadFileService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

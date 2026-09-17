@@ -254,6 +254,43 @@ paths:
       summary: 上传文件
       tags:
       - 文件
+  /api/files/{id}/download:
+    get:
+      description: 根据逻辑文件 ID 下载当前用户拥有的文件，客户端不能指定底层存储 Key。
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: 文件内容
+          schema:
+            type: file
+        "400":
+          description: 文件 ID 不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 文件不存在或无权访问
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 下载文件失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 下载文件
+      tags:
+      - 文件
   /api/folders:
     post:
       consumes:

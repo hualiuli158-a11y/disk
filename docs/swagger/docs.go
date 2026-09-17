@@ -95,6 +95,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/files/{id}/download": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据逻辑文件 ID 下载当前用户拥有的文件，客户端不能指定底层存储 Key。",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "文件"
+                ],
+                "summary": "下载文件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "文件 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文件内容",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "文件 ID 不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "下载文件失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/folders": {
             "post": {
                 "security": [

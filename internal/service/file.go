@@ -24,6 +24,7 @@ var (
 	ErrFileAlreadyExists    = errors.New("同名文件已存在")
 	ErrFileTooLarge         = errors.New("文件超过上传大小限制")
 	ErrFileFolderNotFound   = errors.New("目录不存在")
+	ErrFileNotFound         = errors.New("文件不存在")
 )
 
 type UploadFileService struct {
@@ -203,6 +204,52 @@ func (s *ListFilesService) ListFiles(ctx context.Context, userID uint64, folderI
 	}
 
 	return &ListFilesOutput{FolderID: folderID, Files: items}, nil
+}
+
+type DownloadFileService struct {
+	files   DownloadFileRepository
+	objects ObjectStorage
+}
+
+func NewDownloadFileService(files DownloadFileRepository, objects ObjectStorage) *DownloadFileService {
+	return &DownloadFileService{files: files, objects: objects}
+}
+
+type DownloadFileOutput struct {
+	Name    string
+	Size    int64
+	Content io.ReadCloser
+}
+
+func (s *DownloadFileService) DownloadFile(ctx context.Context, userID uint64, fileID uint64) (*DownloadFileOutput, error) {
+	if userID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if fileID == 0 {
+		return nil, ErrFileNotFound
+	}
+
+	file, err := s.files.FindFileForDownload(ctx, userID, fileID)
+	switch {
+	case errors.Is(err, repository.ErrFileNotFound):
+		return nil, ErrFileNotFound
+	case err != nil:
+		return nil, err
+	}
+	if file == nil || file.PhysicalFile.StorageKey == "" {
+		return nil, ErrFileNotFound
+	}
+
+	content, err := s.objects.Open(ctx, file.PhysicalFile.StorageKey)
+	if err != nil {
+		return nil, fmt.Errorf("open physical file %d: %w", file.PhysicalFileID, err)
+	}
+
+	return &DownloadFileOutput{
+		Name:    file.Name,
+		Size:    file.PhysicalFile.Size,
+		Content: content,
+	}, nil
 }
 
 func (r *countingHashReader) Read(buffer []byte) (int, error) {

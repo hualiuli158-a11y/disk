@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,9 @@ type handlerObjectStorage struct {
 	savedKey    string
 	savedData   []byte
 	deletedKeys []string
+	openData    []byte
+	openErr     error
+	openedKey   string
 }
 
 type handlerListFilesRepository struct {
@@ -83,6 +87,19 @@ func (f *handlerListFilesRepository) ListFiles(_ context.Context, userID uint64,
 	return f.files, f.err
 }
 
+type handlerDownloadFileRepository struct {
+	file           *model.File
+	err            error
+	receivedUserID uint64
+	receivedFileID uint64
+}
+
+func (f *handlerDownloadFileRepository) FindFileForDownload(_ context.Context, userID uint64, fileID uint64) (*model.File, error) {
+	f.receivedUserID = userID
+	f.receivedFileID = fileID
+	return f.file, f.err
+}
+
 func (s *handlerObjectStorage) Save(_ context.Context, key string, reader io.Reader) error {
 	if s.saveErr != nil {
 		return s.saveErr
@@ -96,8 +113,12 @@ func (s *handlerObjectStorage) Save(_ context.Context, key string, reader io.Rea
 	return nil
 }
 
-func (s *handlerObjectStorage) Open(context.Context, string) (io.ReadCloser, error) {
-	return nil, errors.New("not implemented")
+func (s *handlerObjectStorage) Open(_ context.Context, key string) (io.ReadCloser, error) {
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+	s.openedKey = key
+	return io.NopCloser(bytes.NewReader(s.openData)), nil
 }
 
 func (s *handlerObjectStorage) Delete(_ context.Context, key string) error {
@@ -441,6 +462,124 @@ func TestListFilesHandler(t *testing.T) {
 				}
 			} else if len(payload.Files) != 0 {
 				t.Fatalf("files length = %d, want 0", len(payload.Files))
+			}
+		})
+	}
+}
+
+func TestDownloadFileHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	databaseErr := errors.New("database unavailable")
+	storageErr := errors.New("storage unavailable")
+
+	tests := []struct {
+		name       string
+		userID     any
+		fileID     string
+		repository *handlerDownloadFileRepository
+		storageErr error
+		wantStatus int
+		wantCode   int
+	}{
+		{
+			name:   "success",
+			userID: uint64(42),
+			fileID: "2",
+			repository: &handlerDownloadFileRepository{file: &model.File{
+				ID: 2, UserID: 42, FolderID: 7, PhysicalFileID: 1, Name: "photo.txt",
+				PhysicalFile: model.PhysicalFile{ID: 1, Size: 5, StorageKey: "objects/aa/value"},
+			}},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing user ID",
+			fileID:     "2",
+			repository: &handlerDownloadFileRepository{},
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid file ID",
+			userID:     uint64(42),
+			fileID:     "invalid",
+			repository: &handlerDownloadFileRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "file not found",
+			userID:     uint64(42),
+			fileID:     "2",
+			repository: &handlerDownloadFileRepository{err: repository.ErrFileNotFound},
+			wantStatus: http.StatusNotFound,
+			wantCode:   40007,
+		},
+		{
+			name:       "database error",
+			userID:     uint64(42),
+			fileID:     "2",
+			repository: &handlerDownloadFileRepository{err: databaseErr},
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   40008,
+		},
+		{
+			name:   "storage error",
+			userID: uint64(42),
+			fileID: "2",
+			repository: &handlerDownloadFileRepository{file: &model.File{
+				ID: 2, UserID: 42, FolderID: 7, PhysicalFileID: 1, Name: "photo.txt",
+				PhysicalFile: model.PhysicalFile{ID: 1, Size: 5, StorageKey: "objects/aa/value"},
+			}},
+			storageErr: storageErr,
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   40008,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := &handlerObjectStorage{openData: []byte("hello"), openErr: tt.storageErr}
+			filesService := service.NewDownloadFileService(tt.repository, objects)
+			h := NewDownloadFileHandler(filesService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.GET("/api/files/:id/download", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.DownloadFile(c)
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "/api/files/"+tt.fileID+"/download", nil)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			if response.Body.String() != "hello" {
+				t.Fatalf("download body = %q, want hello", response.Body.String())
+			}
+			if response.Header().Get("Content-Type") != "application/octet-stream" || response.Header().Get("Content-Length") != "5" {
+				t.Fatalf("unexpected download headers: %+v", response.Header())
+			}
+			if !strings.Contains(response.Header().Get("Content-Disposition"), "photo.txt") {
+				t.Fatalf("unexpected content disposition: %q", response.Header().Get("Content-Disposition"))
+			}
+			if objects.openedKey != "objects/aa/value" || tt.repository.receivedUserID != 42 || tt.repository.receivedFileID != 2 {
+				t.Fatalf("unexpected download inputs: key=%q user=%d file=%d", objects.openedKey, tt.repository.receivedUserID, tt.repository.receivedFileID)
 			}
 		})
 	}

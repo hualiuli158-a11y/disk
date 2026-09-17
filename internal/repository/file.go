@@ -139,3 +139,20 @@ func (r *FilesRepository) ListFiles(ctx context.Context, userID uint64, folderID
 
 	return files, nil
 }
+
+// FindFileForDownload 查询当前用户可下载的逻辑文件及其物理存储信息。
+func (r *FilesRepository) FindFileForDownload(ctx context.Context, userID uint64, fileID uint64) (*model.File, error) {
+	var file model.File
+	err := r.db.WithContext(ctx).
+		Preload("PhysicalFile").
+		Where("id = ? AND user_id = ?", fileID, userID).
+		First(&file).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, ErrFileNotFound
+	case err != nil:
+		return nil, fmt.Errorf("find file %d for download: %w", fileID, err)
+	default:
+		return &file, nil
+	}
+}

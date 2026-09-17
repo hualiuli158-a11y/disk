@@ -13,17 +13,18 @@ import (
 
 // Handlers 集中保存 HTTP 路由需要的业务处理器。
 type Handlers struct {
-	Login       *handler.LoginHandler
-	Register    *handler.RegisterHandler
-	Profile     *handler.ProfileHandler
-	Folders     *handler.ChildFoldersCreateHandler
-	ListFolders *handler.ListFoldersHandler
-	Rename      *handler.RenameFolderHandler
-	Children    *handler.ListFolderChildrenHandler
-	Delete      *handler.DeleteFolderHandler
-	Move        *handler.MoveFolderHandler
-	UploadFile  *handler.UploadFileHandler
-	ListFiles   *handler.ListFilesHandler
+	Login        *handler.LoginHandler
+	Register     *handler.RegisterHandler
+	Profile      *handler.ProfileHandler
+	Folders      *handler.ChildFoldersCreateHandler
+	ListFolders  *handler.ListFoldersHandler
+	Rename       *handler.RenameFolderHandler
+	Children     *handler.ListFolderChildrenHandler
+	Delete       *handler.DeleteFolderHandler
+	Move         *handler.MoveFolderHandler
+	UploadFile   *handler.UploadFileHandler
+	ListFiles    *handler.ListFilesHandler
+	DownloadFile *handler.DownloadFileHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -55,6 +56,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.PATCH("/folders/:id/move", handlers.Move.MoveFolder)
 		authorized.POST("/files", handlers.UploadFile.UploadFile)
 		authorized.GET("/folders/:id/files", handlers.ListFiles.ListFiles)
+		authorized.GET("/files/:id/download", handlers.DownloadFile.DownloadFile)
 	}
 	return r, nil
 }
