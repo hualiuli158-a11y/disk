@@ -145,6 +145,80 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "重命名当前用户拥有的逻辑文件，同一目录下不能存在同名文件。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件"
+                ],
+                "summary": "重命名文件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "文件 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "新的文件名",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.RenameFileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "重命名成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.RenameFileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数或文件名不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "同一目录下已存在同名文件",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "重命名文件失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/files/{id}/download": {
@@ -1027,6 +1101,31 @@ const docTemplate = `{
                 "access_token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "handler.RenameFileRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "新的文件名.pdf"
+                }
+            }
+        },
+        "handler.RenameFileResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "新的文件名.pdf"
                 }
             }
         },

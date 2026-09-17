@@ -326,3 +326,84 @@ func (h *DeleteFileHandler) DeleteFile(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+type RenameFileHandler struct {
+	files      *service.RenameFileService
+	baselogger *logger.Logger
+}
+
+func NewRenameFileHandler(files *service.RenameFileService, baselogger *logger.Logger) *RenameFileHandler {
+	return &RenameFileHandler{files: files, baselogger: baselogger}
+}
+
+type RenameFileRequest struct {
+	Name string `json:"name" binding:"required" example:"新的文件名.pdf"`
+}
+
+type RenameFileResponse struct {
+	ID   uint64 `json:"id" example:"1"`
+	Name string `json:"name" example:"新的文件名.pdf"`
+}
+
+// RenameFile 重命名当前用户拥有的逻辑文件。
+// @Summary 重命名文件
+// @Description 重命名当前用户拥有的逻辑文件，同一目录下不能存在同名文件。
+// @Tags 文件
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "文件 ID"
+// @Param request body RenameFileRequest true "新的文件名"
+// @Success 200 {object} RenameFileResponse "重命名成功"
+// @Failure 400 {object} app.ErrorResponse "请求参数或文件名不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件不存在或无权访问"
+// @Failure 409 {object} app.ErrorResponse "同一目录下已存在同名文件"
+// @Failure 500 {object} app.ErrorResponse "重命名文件失败"
+// @Router /api/files/{id} [patch]
+func (h *RenameFileHandler) RenameFile(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("RenameFile invalid user_id")
+		return
+	}
+
+	fileID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || fileID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+	var req RenameFileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.files.RenameFile(c.Request.Context(), service.RenameFileInput{
+		UserID: userID,
+		FileID: fileID,
+		Name:   req.Name,
+	})
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrInvalidFileName):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrInvalidFileName)
+		return
+	case errors.Is(err, service.ErrFileNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileNotFound)
+		return
+	case errors.Is(err, service.ErrFileAlreadyExists):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileExists)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("rename file failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrRenameFileFailed)
+		return
+	}
+
+	app.NewResponse(c).ToResponse(RenameFileResponse{ID: result.ID, Name: result.Name})
+}

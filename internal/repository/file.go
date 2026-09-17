@@ -224,3 +224,30 @@ func (r *FilesRepository) DeleteFile(ctx context.Context, userID uint64, fileID 
 	}
 	return storageKey, deletePhysical, nil
 }
+
+// RenameFile 重命名当前用户拥有的逻辑文件。
+func (r *FilesRepository) RenameFile(ctx context.Context, userID uint64, fileID uint64, name string) error {
+	result := r.db.WithContext(ctx).
+		Model(&model.File{}).
+		Where("id = ? AND user_id = ?", fileID, userID).
+		Update("name", name)
+	if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+		return ErrFileAlreadyExists
+	}
+	if result.Error != nil {
+		return fmt.Errorf("rename file %d: %w", fileID, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		var count int64
+		if err := r.db.WithContext(ctx).
+			Model(&model.File{}).
+			Where("id = ? AND user_id = ?", fileID, userID).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("check file %d after rename: %w", fileID, err)
+		}
+		if count == 0 {
+			return ErrFileNotFound
+		}
+	}
+	return nil
+}

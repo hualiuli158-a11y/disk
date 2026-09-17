@@ -135,6 +135,11 @@ func normalizeFileName(value string) (string, error) {
 		utf8.RuneCountInString(name) > 255 {
 		return "", ErrInvalidFileName
 	}
+	for _, character := range name {
+		if character < 0x20 || character == 0x7f {
+			return "", ErrInvalidFileName
+		}
+	}
 	return name, nil
 }
 
@@ -289,6 +294,50 @@ func (s *DeleteFileService) DeleteFile(ctx context.Context, userID uint64, fileI
 		output.CleanupError = s.objects.Delete(context.WithoutCancel(ctx), storageKey)
 	}
 	return output, nil
+}
+
+type RenameFileService struct {
+	files RenameFileRepository
+}
+
+func NewRenameFileService(files RenameFileRepository) *RenameFileService {
+	return &RenameFileService{files: files}
+}
+
+type RenameFileInput struct {
+	UserID uint64
+	FileID uint64
+	Name   string
+}
+
+type RenameFileOutput struct {
+	ID   uint64
+	Name string
+}
+
+func (s *RenameFileService) RenameFile(ctx context.Context, input RenameFileInput) (*RenameFileOutput, error) {
+	if input.UserID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if input.FileID == 0 {
+		return nil, ErrFileNotFound
+	}
+	name, err := normalizeFileName(input.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.files.RenameFile(ctx, input.UserID, input.FileID, name)
+	switch {
+	case errors.Is(err, repository.ErrFileNotFound):
+		return nil, ErrFileNotFound
+	case errors.Is(err, repository.ErrFileAlreadyExists):
+		return nil, ErrFileAlreadyExists
+	case err != nil:
+		return nil, err
+	}
+
+	return &RenameFileOutput{ID: input.FileID, Name: name}, nil
 }
 
 func (r *countingHashReader) Read(buffer []byte) (int, error) {

@@ -103,6 +103,22 @@ type handlerDeleteFileRepository struct {
 	receivedFileID uint64
 }
 
+type handlerRenameFileRepository struct {
+	err            error
+	called         bool
+	receivedUserID uint64
+	receivedFileID uint64
+	receivedName   string
+}
+
+func (f *handlerRenameFileRepository) RenameFile(_ context.Context, userID uint64, fileID uint64, name string) error {
+	f.called = true
+	f.receivedUserID = userID
+	f.receivedFileID = fileID
+	f.receivedName = name
+	return f.err
+}
+
 func (f *handlerDeleteFileRepository) DeleteFile(_ context.Context, userID uint64, fileID uint64) (string, bool, error) {
 	f.receivedUserID = userID
 	f.receivedFileID = fileID
@@ -721,6 +737,136 @@ func TestDeleteFileHandler(t *testing.T) {
 				}
 			} else if len(objects.deletedKeys) != 1 || objects.deletedKeys[0] != tt.wantDeleteKey {
 				t.Fatalf("deleted keys = %v, want %q", objects.deletedKeys, tt.wantDeleteKey)
+			}
+		})
+	}
+}
+
+func TestRenameFileHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	databaseErr := errors.New("database unavailable")
+
+	tests := []struct {
+		name          string
+		userID        any
+		fileID        string
+		body          string
+		repositoryErr error
+		wantStatus    int
+		wantCode      int
+		wantName      string
+		wantRepoCall  bool
+	}{
+		{
+			name:         "success trims name",
+			userID:       uint64(42),
+			fileID:       "2",
+			body:         `{"name":" report.pdf "}`,
+			wantStatus:   http.StatusOK,
+			wantName:     "report.pdf",
+			wantRepoCall: true,
+		},
+		{
+			name:       "missing user ID",
+			fileID:     "2",
+			body:       `{"name":"report.pdf"}`,
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid file ID",
+			userID:     uint64(42),
+			fileID:     "invalid",
+			body:       `{"name":"report.pdf"}`,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "invalid file name",
+			userID:     uint64(42),
+			fileID:     "2",
+			body:       `{"name":"../report.pdf"}`,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   40001,
+		},
+		{
+			name:          "file not found",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"name":"report.pdf"}`,
+			repositoryErr: repository.ErrFileNotFound,
+			wantStatus:    http.StatusNotFound,
+			wantCode:      40007,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "duplicate file name",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"name":"report.pdf"}`,
+			repositoryErr: repository.ErrFileAlreadyExists,
+			wantStatus:    http.StatusConflict,
+			wantCode:      40003,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "database error",
+			userID:        uint64(42),
+			fileID:        "2",
+			body:          `{"name":"report.pdf"}`,
+			repositoryErr: databaseErr,
+			wantStatus:    http.StatusInternalServerError,
+			wantCode:      40010,
+			wantRepoCall:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &handlerRenameFileRepository{err: tt.repositoryErr}
+			filesService := service.NewRenameFileService(repo)
+			h := NewRenameFileHandler(filesService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.PATCH("/api/files/:id", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.RenameFile(c)
+			})
+
+			request := httptest.NewRequest(http.MethodPatch, "/api/files/"+tt.fileID, bytes.NewBufferString(tt.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if repo.called != tt.wantRepoCall {
+				t.Fatalf("repository called = %v, want %v", repo.called, tt.wantRepoCall)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			var payload RenameFileResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode rename response: %v", err)
+			}
+			if payload.ID != 2 || payload.Name != tt.wantName {
+				t.Fatalf("unexpected rename response: %+v", payload)
+			}
+			if repo.receivedUserID != 42 || repo.receivedFileID != 2 || repo.receivedName != tt.wantName {
+				t.Fatalf("unexpected repository input: user=%d file=%d name=%q", repo.receivedUserID, repo.receivedFileID, repo.receivedName)
 			}
 		})
 	}
