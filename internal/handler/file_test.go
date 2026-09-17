@@ -70,6 +70,19 @@ type handlerObjectStorage struct {
 	deletedKeys []string
 }
 
+type handlerListFilesRepository struct {
+	files            []model.File
+	err              error
+	receivedUserID   uint64
+	receivedFolderID uint64
+}
+
+func (f *handlerListFilesRepository) ListFiles(_ context.Context, userID uint64, folderID uint64) ([]model.File, error) {
+	f.receivedUserID = userID
+	f.receivedFolderID = folderID
+	return f.files, f.err
+}
+
 func (s *handlerObjectStorage) Save(_ context.Context, key string, reader io.Reader) error {
 	if s.saveErr != nil {
 		return s.saveErr
@@ -310,6 +323,124 @@ func TestUploadFileHandler(t *testing.T) {
 			}
 			if !bytes.Equal(objects.savedData, tt.content) {
 				t.Fatalf("saved content = %q, want %q", objects.savedData, tt.content)
+			}
+		})
+	}
+}
+
+func TestListFilesHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	createdAt := time.Date(2026, time.September, 17, 12, 0, 0, 0, time.UTC)
+	databaseErr := errors.New("database unavailable")
+
+	tests := []struct {
+		name       string
+		userID     any
+		folderID   string
+		repository *handlerListFilesRepository
+		wantStatus int
+		wantCode   int
+		wantFile   bool
+	}{
+		{
+			name:     "success",
+			userID:   uint64(42),
+			folderID: "7",
+			repository: &handlerListFilesRepository{files: []model.File{{
+				ID: 2, UserID: 42, FolderID: 7, Name: "photo.jpg", CreatedAt: createdAt,
+				PhysicalFile: model.PhysicalFile{ID: 1, Size: 5, SHA256: "abc"},
+			}}},
+			wantStatus: http.StatusOK,
+			wantFile:   true,
+		},
+		{
+			name:       "empty files",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerListFilesRepository{},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing user ID",
+			folderID:   "7",
+			repository: &handlerListFilesRepository{},
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid folder ID",
+			userID:     uint64(42),
+			folderID:   "invalid",
+			repository: &handlerListFilesRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "folder not found",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerListFilesRepository{err: repository.ErrFileFolderNotFound},
+			wantStatus: http.StatusNotFound,
+			wantCode:   30007,
+		},
+		{
+			name:       "database error",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerListFilesRepository{err: databaseErr},
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   40006,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filesService := service.NewListFilesService(tt.repository)
+			h := NewListFilesHandler(filesService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.GET("/api/folders/:id/files", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.ListFiles(c)
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "/api/folders/"+tt.folderID+"/files", nil)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			var payload ListFilesResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode list response: %v", err)
+			}
+			if payload.FolderID != 7 || payload.Files == nil {
+				t.Fatalf("unexpected list response: %+v", payload)
+			}
+			if tt.repository.receivedUserID != 42 || tt.repository.receivedFolderID != 7 {
+				t.Fatalf("unexpected repository input: user=%d folder=%d", tt.repository.receivedUserID, tt.repository.receivedFolderID)
+			}
+			if tt.wantFile {
+				if len(payload.Files) != 1 || payload.Files[0].ID != 2 || payload.Files[0].Size != 5 || payload.Files[0].SHA256 != "abc" {
+					t.Fatalf("unexpected files: %+v", payload.Files)
+				}
+			} else if len(payload.Files) != 0 {
+				t.Fatalf("files length = %d, want 0", len(payload.Files))
 			}
 		})
 	}

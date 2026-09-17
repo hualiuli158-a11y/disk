@@ -117,3 +117,83 @@ func (h *UploadFileHandler) UploadFile(c *gin.Context) {
 		CreatedAt: result.CreatedAt,
 	})
 }
+
+type ListFilesHandler struct {
+	files      *service.ListFilesService
+	baselogger *logger.Logger
+}
+
+func NewListFilesHandler(files *service.ListFilesService, baselogger *logger.Logger) *ListFilesHandler {
+	return &ListFilesHandler{files: files, baselogger: baselogger}
+}
+
+type FileListItemResponse struct {
+	ID        uint64    `json:"id"`
+	FolderID  uint64    `json:"folder_id"`
+	Name      string    `json:"name"`
+	Size      int64     `json:"size"`
+	SHA256    string    `json:"sha256"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ListFilesResponse struct {
+	FolderID uint64                 `json:"folder_id"`
+	Files    []FileListItemResponse `json:"files"`
+}
+
+// ListFiles 返回指定目录中的直接文件。
+// @Summary 获取目录中的文件
+// @Description 返回当前用户指定目录中的直接文件，不包含子目录中的文件，也不暴露底层存储 Key。
+// @Tags 文件
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "目录 ID"
+// @Success 200 {object} ListFilesResponse "查询成功"
+// @Failure 400 {object} app.ErrorResponse "目录 ID 不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "目录不存在或无权访问"
+// @Failure 500 {object} app.ErrorResponse "获取文件列表失败"
+// @Router /api/folders/{id}/files [get]
+func (h *ListFilesHandler) ListFiles(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("ListFiles invalid user_id")
+		return
+	}
+
+	folderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || folderID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.files.ListFiles(c.Request.Context(), userID, folderID)
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFileFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotFound)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("list files failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrListFilesFailed)
+		return
+	}
+
+	files := make([]FileListItemResponse, 0, len(result.Files))
+	for _, file := range result.Files {
+		files = append(files, FileListItemResponse{
+			ID:        file.ID,
+			FolderID:  file.FolderID,
+			Name:      file.Name,
+			Size:      file.Size,
+			SHA256:    file.SHA256,
+			CreatedAt: file.CreatedAt,
+		})
+	}
+
+	app.NewResponse(c).ToResponse(ListFilesResponse{FolderID: result.FolderID, Files: files})
+}

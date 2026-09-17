@@ -15,6 +15,7 @@ var (
 	ErrFileExists           = NewError(40003, "同名文件已存在")
 	ErrFileTooLarge         = NewError(40004, "文件超过上传大小限制")
 	ErrUploadFileFailed     = NewError(40005, "上传文件失败")
+	ErrListFilesFailed      = NewError(40006, "获取文件列表失败")
 )
 
 var (

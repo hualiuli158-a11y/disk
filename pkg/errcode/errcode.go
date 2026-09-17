@@ -106,6 +106,8 @@ func (e *Error) StatusCode() int {
 		return http.StatusRequestEntityTooLarge
 	case ErrUploadFileFailed.Code():
 		return http.StatusInternalServerError
+	case ErrListFilesFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

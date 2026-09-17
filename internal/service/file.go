@@ -23,6 +23,7 @@ var (
 	ErrUploadFolderNotFound = errors.New("上传目录不存在")
 	ErrFileAlreadyExists    = errors.New("同名文件已存在")
 	ErrFileTooLarge         = errors.New("文件超过上传大小限制")
+	ErrFileFolderNotFound   = errors.New("目录不存在")
 )
 
 type UploadFileService struct {
@@ -149,6 +150,59 @@ type countingHashReader struct {
 	reader io.Reader
 	hasher hash.Hash
 	size   int64
+}
+
+type ListFilesService struct {
+	files ListFilesRepository
+}
+
+func NewListFilesService(files ListFilesRepository) *ListFilesService {
+	return &ListFilesService{files: files}
+}
+
+type FileListItem struct {
+	ID        uint64
+	FolderID  uint64
+	Name      string
+	Size      int64
+	SHA256    string
+	CreatedAt time.Time
+}
+
+type ListFilesOutput struct {
+	FolderID uint64
+	Files    []FileListItem
+}
+
+func (s *ListFilesService) ListFiles(ctx context.Context, userID uint64, folderID uint64) (*ListFilesOutput, error) {
+	if userID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if folderID == 0 {
+		return nil, ErrFileFolderNotFound
+	}
+
+	files, err := s.files.ListFiles(ctx, userID, folderID)
+	switch {
+	case errors.Is(err, repository.ErrFileFolderNotFound):
+		return nil, ErrFileFolderNotFound
+	case err != nil:
+		return nil, err
+	}
+
+	items := make([]FileListItem, 0, len(files))
+	for _, file := range files {
+		items = append(items, FileListItem{
+			ID:        file.ID,
+			FolderID:  file.FolderID,
+			Name:      file.Name,
+			Size:      file.PhysicalFile.Size,
+			SHA256:    file.PhysicalFile.SHA256,
+			CreatedAt: file.CreatedAt,
+		})
+	}
+
+	return &ListFilesOutput{FolderID: folderID, Files: items}, nil
 }
 
 func (r *countingHashReader) Read(buffer []byte) (int, error) {

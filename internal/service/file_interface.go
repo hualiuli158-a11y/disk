@@ -19,6 +19,10 @@ type UploadFileRepository interface {
 	) (*model.File, *model.PhysicalFile, bool, error)
 }
 
+type ListFilesRepository interface {
+	ListFiles(ctx context.Context, userID uint64, folderID uint64) ([]model.File, error)
+}
+
 type ObjectStorage interface {
 	Save(ctx context.Context, key string, reader io.Reader) error
 	Open(ctx context.Context, key string) (io.ReadCloser, error)

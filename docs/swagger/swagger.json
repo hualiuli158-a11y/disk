@@ -397,6 +397,64 @@
                 }
             }
         },
+        "/api/folders/{id}/files": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "返回当前用户指定目录中的直接文件，不包含子目录中的文件，也不暴露底层存储 Key。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件"
+                ],
+                "summary": "获取目录中的文件",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "目录 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ListFilesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "目录 ID 不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "目录不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "获取文件列表失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/folders/{id}/move": {
             "patch": {
                 "security": [
@@ -679,6 +737,29 @@
                 }
             }
         },
+        "handler.FileListItemResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "folder_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
         "handler.FolderListItemResponse": {
             "type": "object",
             "properties": {
@@ -692,6 +773,20 @@
                     "type": "string"
                 },
                 "parent_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.ListFilesResponse": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.FileListItemResponse"
+                    }
+                },
+                "folder_id": {
                     "type": "integer"
                 }
             }

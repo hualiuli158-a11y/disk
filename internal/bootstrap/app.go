@@ -73,6 +73,7 @@ func New() (*App, error) {
 	deleteFolderService := service.NewDeleteFolderService(foldersRepository)
 	moveFolderService := service.NewMoveFolderService(foldersRepository)
 	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
+	listFilesService := service.NewListFilesService(filesRepository)
 
 	handlers := router.Handlers{
 		Login:       handler.NewLoginHandler(loginService, baseLogger),
@@ -85,6 +86,7 @@ func New() (*App, error) {
 		Delete:      handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
 		Move:        handler.NewMoveFolderHandler(moveFolderService, baseLogger),
 		UploadFile:  handler.NewUploadFileHandler(uploadFileService, baseLogger),
+		ListFiles:   handler.NewListFilesHandler(listFilesService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

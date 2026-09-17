@@ -113,3 +113,29 @@ func (r *FilesRepository) CreateUploadedFile(
 	logical.PhysicalFile = physical
 	return &logical, &physical, physicalCreated, nil
 }
+
+// ListFiles 查询当前用户指定目录中的直接文件，不包含子目录中的文件。
+func (r *FilesRepository) ListFiles(ctx context.Context, userID uint64, folderID uint64) ([]model.File, error) {
+	var folder model.Folder
+	err := r.db.WithContext(ctx).
+		Select("id").
+		Where("id = ? AND user_id = ?", folderID, userID).
+		First(&folder).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, ErrFileFolderNotFound
+	case err != nil:
+		return nil, fmt.Errorf("find folder %d for file listing: %w", folderID, err)
+	}
+
+	files := make([]model.File, 0)
+	if err := r.db.WithContext(ctx).
+		Preload("PhysicalFile").
+		Where("user_id = ? AND folder_id = ?", userID, folderID).
+		Order("created_at ASC, id ASC").
+		Find(&files).Error; err != nil {
+		return nil, fmt.Errorf("list files in folder %d: %w", folderID, err)
+	}
+
+	return files, nil
+}
