@@ -58,6 +58,22 @@ type handlerDeleteFolderRepository struct {
 	receivedFolderID uint64
 }
 
+type handlerMoveFolderRepository struct {
+	err                 error
+	called              bool
+	receivedUserID      uint64
+	receivedFolderID    uint64
+	receivedNewParentID uint64
+}
+
+func (f *handlerMoveFolderRepository) MoveFolder(_ context.Context, userID uint64, folderID uint64, newParentID uint64) error {
+	f.called = true
+	f.receivedUserID = userID
+	f.receivedFolderID = folderID
+	f.receivedNewParentID = newParentID
+	return f.err
+}
+
 func (f *handlerDeleteFolderRepository) DeleteEmptyFolder(_ context.Context, userID uint64, folderID uint64) error {
 	f.called = true
 	f.receivedUserID = userID
@@ -556,6 +572,163 @@ func TestDeleteFolderHandler(t *testing.T) {
 			}
 			if repo.receivedUserID != 42 || repo.receivedFolderID != 7 {
 				t.Fatalf("unexpected repository input: user=%d folder=%d", repo.receivedUserID, repo.receivedFolderID)
+			}
+		})
+	}
+}
+
+func TestMoveFolderHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	databaseErr := errors.New("database unavailable")
+
+	tests := []struct {
+		name          string
+		userID        any
+		folderID      string
+		body          string
+		repositoryErr error
+		wantStatus    int
+		wantCode      int
+		wantRepoCall  bool
+	}{
+		{
+			name:         "success",
+			userID:       uint64(42),
+			folderID:     "7",
+			body:         `{"parent_id":10}`,
+			wantStatus:   http.StatusOK,
+			wantRepoCall: true,
+		},
+		{
+			name:       "missing user ID",
+			folderID:   "7",
+			body:       `{"parent_id":10}`,
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid folder ID",
+			userID:     uint64(42),
+			folderID:   "invalid",
+			body:       `{"parent_id":10}`,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "missing parent ID",
+			userID:     uint64(42),
+			folderID:   "7",
+			body:       `{}`,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:          "folder not found",
+			userID:        uint64(42),
+			folderID:      "7",
+			body:          `{"parent_id":10}`,
+			repositoryErr: repository.ErrFolderNotFound,
+			wantStatus:    http.StatusNotFound,
+			wantCode:      30007,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "cannot move root",
+			userID:        uint64(42),
+			folderID:      "1",
+			body:          `{"parent_id":10}`,
+			repositoryErr: repository.ErrCannotMoveRoot,
+			wantStatus:    http.StatusConflict,
+			wantCode:      30012,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "invalid folder move",
+			userID:        uint64(42),
+			folderID:      "7",
+			body:          `{"parent_id":8}`,
+			repositoryErr: repository.ErrInvalidFolderMove,
+			wantStatus:    http.StatusConflict,
+			wantCode:      30013,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "duplicate folder name",
+			userID:        uint64(42),
+			folderID:      "7",
+			body:          `{"parent_id":10}`,
+			repositoryErr: repository.ErrFolderAlreadyExists,
+			wantStatus:    http.StatusConflict,
+			wantCode:      30003,
+			wantRepoCall:  true,
+		},
+		{
+			name:          "database error",
+			userID:        uint64(42),
+			folderID:      "7",
+			body:          `{"parent_id":10}`,
+			repositoryErr: databaseErr,
+			wantStatus:    http.StatusInternalServerError,
+			wantCode:      30014,
+			wantRepoCall:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &handlerMoveFolderRepository{err: tt.repositoryErr}
+			foldersService := service.NewMoveFolderService(repo)
+			h := NewMoveFolderHandler(foldersService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.PATCH("/api/folders/:id/move", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.MoveFolder(c)
+			})
+
+			request := httptest.NewRequest(
+				http.MethodPatch,
+				"/api/folders/"+tt.folderID+"/move",
+				bytes.NewBufferString(tt.body),
+			)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if repo.called != tt.wantRepoCall {
+				t.Fatalf("repository called = %v, want %v", repo.called, tt.wantRepoCall)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			var payload MoveFolderResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode move response: %v", err)
+			}
+			if payload.ID != 7 || payload.ParentID != 10 {
+				t.Fatalf("unexpected move response: %+v", payload)
+			}
+			if repo.receivedUserID != 42 || repo.receivedFolderID != 7 || repo.receivedNewParentID != 10 {
+				t.Fatalf(
+					"unexpected repository input: user=%d folder=%d parent=%d",
+					repo.receivedUserID,
+					repo.receivedFolderID,
+					repo.receivedNewParentID,
+				)
 			}
 		})
 	}

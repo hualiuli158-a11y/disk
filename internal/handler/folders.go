@@ -405,3 +405,93 @@ func (h *DeleteFolderHandler) DeleteFolder(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+type MoveFolderHandler struct {
+	folders    *service.MoveFolderService
+	baselogger *logger.Logger
+}
+
+func NewMoveFolderHandler(folders *service.MoveFolderService, baselogger *logger.Logger) *MoveFolderHandler {
+	return &MoveFolderHandler{folders: folders, baselogger: baselogger}
+}
+
+type MoveFolderRequest struct {
+	ParentID uint64 `json:"parent_id" binding:"required" example:"10"`
+}
+
+type MoveFolderResponse struct {
+	ID       uint64 `json:"id" example:"7"`
+	ParentID uint64 `json:"parent_id" example:"10"`
+}
+
+// MoveFolder 将当前用户拥有的非根目录移动到新的父目录。
+// @Summary 移动文件夹
+// @Description 将当前用户拥有的非根目录移动到新的父目录。不能移动到自身或自己的后代，目标目录下不能存在同名文件夹。
+// @Tags 文件夹
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "待移动文件夹 ID"
+// @Param request body MoveFolderRequest true "目标父目录"
+// @Success 200 {object} MoveFolderResponse "移动成功"
+// @Failure 400 {object} app.ErrorResponse "请求参数不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "源目录或目标目录不存在或无权访问"
+// @Failure 409 {object} app.ErrorResponse "根目录不能移动、移动会形成目录环或目标目录存在同名文件夹"
+// @Failure 500 {object} app.ErrorResponse "移动文件夹失败"
+// @Router /api/folders/{id}/move [patch]
+func (h *MoveFolderHandler) MoveFolder(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		h.baselogger.WithContext(c.Request.Context()).Errorf("MoveFolder invalid user_id")
+		return
+	}
+
+	folderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || folderID == 0 {
+		h.baselogger.WithContext(c.Request.Context()).Errorf("parse folder id failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	var req MoveFolderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.baselogger.WithContext(c.Request.Context()).Errorf("MoveFolder invalid request body")
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.folders.MoveFolder(c.Request.Context(), service.MoveFolderInput{
+		UserID:      userID,
+		FolderID:    folderID,
+		NewParentID: req.ParentID,
+	})
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotFound)
+		return
+	case errors.Is(err, service.ErrCannotMoveRoot):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrCannotMoveRoot)
+		return
+	case errors.Is(err, service.ErrInvalidFolderMove):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrInvalidFolderMove)
+		return
+	case errors.Is(err, service.ErrFolderAlreadyExists):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderExists)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("move folder failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrMoveFolderFailed)
+		return
+	}
+
+	app.NewResponse(c).ToResponse(MoveFolderResponse{
+		ID:       result.ID,
+		ParentID: result.ParentID,
+	})
+}

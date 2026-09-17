@@ -90,6 +90,12 @@ func (e *Error) StatusCode() int {
 		return http.StatusConflict
 	case ErrDeleteFolderFailed.Code():
 		return http.StatusInternalServerError
+	case ErrCannotMoveRoot.Code():
+		return http.StatusConflict
+	case ErrInvalidFolderMove.Code():
+		return http.StatusConflict
+	case ErrMoveFolderFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

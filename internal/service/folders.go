@@ -19,6 +19,8 @@ var (
 	ErrFolderNotFound      = errors.New("文件夹不存在")
 	ErrCannotDeleteRoot    = errors.New("根目录不能删除")
 	ErrFolderNotEmpty      = errors.New("文件夹不为空")
+	ErrCannotMoveRoot      = errors.New("根目录不能移动")
+	ErrInvalidFolderMove   = errors.New("不能将文件夹移动到自身或其子目录")
 )
 
 func normalizeFolderName(value string) (string, error) {
@@ -276,4 +278,48 @@ func (s *DeleteFolderService) DeleteFolder(ctx context.Context, input DeleteFold
 	default:
 		return nil
 	}
+}
+
+type MoveFolderService struct {
+	folders MoveFolderRepository
+}
+
+func NewMoveFolderService(folders MoveFolderRepository) *MoveFolderService {
+	return &MoveFolderService{folders: folders}
+}
+
+type MoveFolderInput struct {
+	UserID      uint64
+	FolderID    uint64
+	NewParentID uint64
+}
+
+type MoveFolderOutput struct {
+	ID       uint64
+	ParentID uint64
+}
+
+func (s *MoveFolderService) MoveFolder(ctx context.Context, input MoveFolderInput) (*MoveFolderOutput, error) {
+	if input.UserID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if input.FolderID == 0 || input.NewParentID == 0 {
+		return nil, ErrFolderNotFound
+	}
+
+	err := s.folders.MoveFolder(ctx, input.UserID, input.FolderID, input.NewParentID)
+	switch {
+	case errors.Is(err, repository.ErrFolderNotFound):
+		return nil, ErrFolderNotFound
+	case errors.Is(err, repository.ErrCannotMoveRoot):
+		return nil, ErrCannotMoveRoot
+	case errors.Is(err, repository.ErrInvalidFolderMove):
+		return nil, ErrInvalidFolderMove
+	case errors.Is(err, repository.ErrFolderAlreadyExists):
+		return nil, ErrFolderAlreadyExists
+	case err != nil:
+		return nil, err
+	}
+
+	return &MoveFolderOutput{ID: input.FolderID, ParentID: input.NewParentID}, nil
 }

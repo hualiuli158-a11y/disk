@@ -320,6 +320,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/folders/{id}/move": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "将当前用户拥有的非根目录移动到新的父目录。不能移动到自身或自己的后代，目标目录下不能存在同名文件夹。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件夹"
+                ],
+                "summary": "移动文件夹",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "待移动文件夹 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "目标父目录",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.MoveFolderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "移动成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.MoveFolderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "源目录或目标目录不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "根目录不能移动、移动会形成目录环或目标目录存在同名文件夹",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "移动文件夹失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profile": {
             "get": {
                 "security": [
@@ -594,6 +670,31 @@ const docTemplate = `{
                 "access_token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "handler.MoveFolderRequest": {
+            "type": "object",
+            "required": [
+                "parent_id"
+            ],
+            "properties": {
+                "parent_id": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "handler.MoveFolderResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "parent_id": {
+                    "type": "integer",
+                    "example": 10
                 }
             }
         },

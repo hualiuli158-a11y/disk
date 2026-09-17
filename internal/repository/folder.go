@@ -18,6 +18,8 @@ var (
 	ErrFolderNotFound      = errors.New("文件夹不存在")
 	ErrCannotDeleteRoot    = errors.New("根目录不能删除")
 	ErrFolderNotEmpty      = errors.New("文件夹不为空")
+	ErrCannotMoveRoot      = errors.New("根目录不能移动")
+	ErrInvalidFolderMove   = errors.New("不能将文件夹移动到自身或其子目录")
 )
 
 // FoldersRepository 负责文件夹数据的持久化操作。
@@ -192,6 +194,105 @@ func (r *FoldersRepository) DeleteEmptyFolder(ctx context.Context, userID uint64
 		result := tx.Where("id = ? AND user_id = ?", folderID, userID).Delete(&model.Folder{})
 		if result.Error != nil {
 			return fmt.Errorf("delete folder %d: %w", folderID, result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return ErrFolderNotFound
+		}
+
+		return nil
+	})
+}
+
+// MoveFolder 将当前用户拥有的非根目录移动到新的父目录。
+func (r *FoldersRepository) MoveFolder(ctx context.Context, userID uint64, folderID uint64, newParentID uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 同一用户的移动操作串行执行，避免两个并发移动共同制造目录环。
+		var user model.User
+		err := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id").
+			Where("id = ?", userID).
+			First(&user).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return ErrFolderNotFound
+		case err != nil:
+			return fmt.Errorf("lock user %d for folder move: %w", userID, err)
+		}
+
+		var folder model.Folder
+		err = tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id", "parent_id", "name").
+			Where("id = ? AND user_id = ?", folderID, userID).
+			First(&folder).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return ErrFolderNotFound
+		case err != nil:
+			return fmt.Errorf("find folder %d for move: %w", folderID, err)
+		}
+
+		if folder.ParentID == nil {
+			return ErrCannotMoveRoot
+		}
+		if folder.ID == newParentID {
+			return ErrInvalidFolderMove
+		}
+
+		var target model.Folder
+		err = tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id", "parent_id").
+			Where("id = ? AND user_id = ?", newParentID, userID).
+			First(&target).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return ErrFolderNotFound
+		case err != nil:
+			return fmt.Errorf("find target folder %d for move: %w", newParentID, err)
+		}
+
+		// 已经位于目标目录下时保持幂等。
+		if folder.ParentID != nil && *folder.ParentID == target.ID {
+			return nil
+		}
+
+		// 沿目标目录向根目录回溯；遇到源目录说明目标是源目录的后代。
+		current := target
+		visited := make(map[uint64]struct{})
+		for {
+			if current.ID == folder.ID {
+				return ErrInvalidFolderMove
+			}
+			if _, exists := visited[current.ID]; exists {
+				return ErrInvalidFolderMove
+			}
+			visited[current.ID] = struct{}{}
+
+			if current.ParentID == nil {
+				break
+			}
+
+			var parent model.Folder
+			err = tx.
+				Select("id", "parent_id").
+				Where("id = ? AND user_id = ?", *current.ParentID, userID).
+				First(&parent).Error
+			if err != nil {
+				return fmt.Errorf("walk ancestors from folder %d: %w", current.ID, err)
+			}
+			current = parent
+		}
+
+		result := tx.Model(&model.Folder{}).
+			Where("id = ? AND user_id = ? AND parent_id IS NOT NULL", folderID, userID).
+			Update("parent_id", target.ID)
+		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+			return ErrFolderAlreadyExists
+		}
+		if result.Error != nil {
+			return fmt.Errorf("move folder %d to %d: %w", folderID, target.ID, result.Error)
 		}
 		if result.RowsAffected == 0 {
 			return ErrFolderNotFound

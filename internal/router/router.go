@@ -21,6 +21,7 @@ type Handlers struct {
 	Rename      *handler.RenameFolderHandler
 	Children    *handler.ListFolderChildrenHandler
 	Delete      *handler.DeleteFolderHandler
+	Move        *handler.MoveFolderHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -49,6 +50,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.PATCH("/folders/:id", handlers.Rename.RenameFolder)
 		authorized.GET("/folders/:id/children", handlers.Children.ListChildren)
 		authorized.DELETE("/folders/:id", handlers.Delete.DeleteFolder)
+		authorized.PATCH("/folders/:id/move", handlers.Move.MoveFolder)
 	}
 	return r, nil
 }

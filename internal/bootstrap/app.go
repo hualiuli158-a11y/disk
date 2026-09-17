@@ -65,6 +65,7 @@ func New() (*App, error) {
 	renameFolderService := service.NewRenameFolderService(foldersRepository)
 	listFolderChildrenService := service.NewListFolderChildrenService(foldersRepository)
 	deleteFolderService := service.NewDeleteFolderService(foldersRepository)
+	moveFolderService := service.NewMoveFolderService(foldersRepository)
 
 	handlers := router.Handlers{
 		Login:       handler.NewLoginHandler(loginService, baseLogger),
@@ -75,6 +76,7 @@ func New() (*App, error) {
 		Rename:      handler.NewRenameFolderHandler(renameFolderService, baseLogger),
 		Children:    handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
 		Delete:      handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
+		Move:        handler.NewMoveFolderHandler(moveFolderService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

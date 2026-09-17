@@ -25,3 +25,7 @@ type FolderChildrenRepository interface {
 type DeleteFolderRepository interface {
 	DeleteEmptyFolder(ctx context.Context, userID uint64, folderID uint64) error
 }
+
+type MoveFolderRepository interface {
+	MoveFolder(ctx context.Context, userID uint64, folderID uint64, newParentID uint64) error
+}

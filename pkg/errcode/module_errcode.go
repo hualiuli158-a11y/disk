@@ -21,4 +21,7 @@ var (
 	ErrCannotDeleteRoot   = NewError(30009, "根目录不能删除")
 	ErrFolderNotEmpty     = NewError(30010, "文件夹不为空")
 	ErrDeleteFolderFailed = NewError(30011, "删除文件夹失败")
+	ErrCannotMoveRoot     = NewError(30012, "根目录不能移动")
+	ErrInvalidFolderMove  = NewError(30013, "不能将文件夹移动到自身或其子目录")
+	ErrMoveFolderFailed   = NewError(30014, "移动文件夹失败")
 )
