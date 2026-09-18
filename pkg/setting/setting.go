@@ -44,17 +44,17 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("JWT_EXPIRE must be a positive duration (for example 3600 or 1h)")
 	}
 
+	databaseConfig := databaseConfigFromEnvironment()
+	if err := databaseConfig.Validate(); err != nil {
+		return nil, err
+	}
+
 	config := &Config{
 		Server: HttpConfig{
 			Port:   strings.TrimSpace(os.Getenv("PORT")),
 			Listen: strings.TrimSpace(os.Getenv("LISTEN")),
 		},
-		Database: DatabaseConfig{
-			Host:         strings.TrimSpace(os.Getenv("DB_HOST")),
-			Username:     strings.TrimSpace(os.Getenv("DB_USER")),
-			Password:     os.Getenv("DB_PASSWORD"),
-			DatabaseName: strings.TrimSpace(os.Getenv("DB_NAME")),
-		},
+		Database: databaseConfig,
 		Jwt: JwtConfig{
 			Secret: strings.TrimSpace(os.Getenv("JWT_SECRET")),
 			Issuer: strings.TrimSpace(os.Getenv("JWT_ISSUER")),
@@ -108,6 +108,30 @@ type DatabaseConfig struct {
 	Password     string
 	Host         string
 	DatabaseName string
+}
+
+func LoadDatabaseConfig() (DatabaseConfig, error) {
+	if err := LoadEnvironment(); err != nil {
+		return DatabaseConfig{}, err
+	}
+	config := databaseConfigFromEnvironment()
+	return config, config.Validate()
+}
+
+func databaseConfigFromEnvironment() DatabaseConfig {
+	return DatabaseConfig{
+		Host:         strings.TrimSpace(os.Getenv("DB_HOST")),
+		Username:     strings.TrimSpace(os.Getenv("DB_USER")),
+		Password:     os.Getenv("DB_PASSWORD"),
+		DatabaseName: strings.TrimSpace(os.Getenv("DB_NAME")),
+	}
+}
+
+func (c DatabaseConfig) Validate() error {
+	if c.Host == "" || c.Username == "" || c.DatabaseName == "" {
+		return fmt.Errorf("DB_HOST, DB_USER and DB_NAME must be set")
+	}
+	return nil
 }
 
 type JwtConfig struct {

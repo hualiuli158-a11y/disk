@@ -54,7 +54,7 @@ func New() (*App, error) {
 		}
 	}()
 
-	if err := database.AutoMigrate(db); err != nil {
+	if err := database.RequireCurrentVersion(context.Background(), sqlDB); err != nil {
 		return nil, err
 	}
 
