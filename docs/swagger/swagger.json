@@ -965,6 +965,88 @@
                 }
             }
         },
+        "/api/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "按名称搜索当前用户的文件和非根目录，支持类型筛选、分页和排序。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "搜索"
+                ],
+                "summary": "搜索文件和目录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "搜索关键字",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "类型：all、folder、file，默认 all",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认 50，最大 100",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序字段：name、size、created_at、updated_at",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "排序方向：asc、desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "搜索成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.SearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "搜索参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "搜索失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "使用用户名和密码完成身份认证，成功后返回访问令牌。用户名不存在和密码错误统一返回“用户名或密码错误”。",
@@ -1455,6 +1537,41 @@
                     "type": "integer"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.SearchResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.ContentItemResponse"
+                    }
+                },
+                "order": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "sort": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                },
+                "type": {
                     "type": "string"
                 }
             }

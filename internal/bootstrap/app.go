@@ -57,6 +57,7 @@ func New() (*App, error) {
 	userRepository := repository.NewUserRepository(db)
 	foldersRepository := repository.NewFoldersRepository(db)
 	filesRepository := repository.NewFilesRepository(db)
+	searchRepository := repository.NewSearchRepository(db)
 	objectStorage, err := storage.NewStorage(config.Storage.Root)
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
@@ -80,6 +81,7 @@ func New() (*App, error) {
 	deleteFileService := service.NewDeleteFileService(filesRepository, objectStorage)
 	renameFileService := service.NewRenameFileService(filesRepository)
 	moveFileService := service.NewMoveFileService(filesRepository)
+	searchService := service.NewSearchService(searchRepository)
 
 	handlers := router.Handlers{
 		Login:        handler.NewLoginHandler(loginService, baseLogger),
@@ -99,6 +101,7 @@ func New() (*App, error) {
 		DeleteFile:   handler.NewDeleteFileHandler(deleteFileService, baseLogger),
 		RenameFile:   handler.NewRenameFileHandler(renameFileService, baseLogger),
 		MoveFile:     handler.NewMoveFileHandler(moveFileService, baseLogger),
+		Search:       handler.NewSearchHandler(searchService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

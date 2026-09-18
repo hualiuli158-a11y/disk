@@ -122,6 +122,8 @@ func (e *Error) StatusCode() int {
 		return http.StatusInternalServerError
 	case ErrQuotaExceeded.Code():
 		return http.StatusInsufficientStorage
+	case ErrSearchFailed.Code():
+		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
 	case UnauthorizedTokenError.Code():

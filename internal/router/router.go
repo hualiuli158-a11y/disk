@@ -30,6 +30,7 @@ type Handlers struct {
 	DeleteFile   *handler.DeleteFileHandler
 	RenameFile   *handler.RenameFileHandler
 	MoveFile     *handler.MoveFileHandler
+	Search       *handler.SearchHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -67,6 +68,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.DELETE("/files/:id", handlers.DeleteFile.DeleteFile)
 		authorized.PATCH("/files/:id", handlers.RenameFile.RenameFile)
 		authorized.PATCH("/files/:id/move", handlers.MoveFile.MoveFile)
+		authorized.GET("/search", handlers.Search.Search)
 	}
 	return r, nil
 }

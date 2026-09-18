@@ -262,6 +262,29 @@ definitions:
       name:
         type: string
     type: object
+  handler.SearchResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handler.ContentItemResponse'
+        type: array
+      order:
+        type: string
+      page:
+        type: integer
+      page_size:
+        type: integer
+      query:
+        type: string
+      sort:
+        type: string
+      total:
+        type: integer
+      total_pages:
+        type: integer
+      type:
+        type: string
+    type: object
   handler.UploadFileResponse:
     properties:
       created_at:
@@ -900,6 +923,59 @@ paths:
       summary: 获取存储额度
       tags:
       - 用户
+  /api/search:
+    get:
+      description: 按名称搜索当前用户的文件和非根目录，支持类型筛选、分页和排序。
+      parameters:
+      - description: 搜索关键字
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: 类型：all、folder、file，默认 all
+        in: query
+        name: type
+        type: string
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认 50，最大 100
+        in: query
+        name: page_size
+        type: integer
+      - description: 排序字段：name、size、created_at、updated_at
+        in: query
+        name: sort
+        type: string
+      - description: 排序方向：asc、desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 搜索成功
+          schema:
+            $ref: '#/definitions/handler.SearchResponse'
+        "400":
+          description: 搜索参数不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 搜索失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 搜索文件和目录
+      tags:
+      - 搜索
   /login:
     post:
       consumes:

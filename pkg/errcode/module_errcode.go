@@ -22,6 +22,7 @@ var (
 	ErrRenameFileFailed     = NewError(40010, "重命名文件失败")
 	ErrMoveFileFailed       = NewError(40011, "移动文件失败")
 	ErrQuotaExceeded        = NewError(40012, "存储额度不足")
+	ErrSearchFailed         = NewError(40013, "搜索失败")
 )
 
 var (
