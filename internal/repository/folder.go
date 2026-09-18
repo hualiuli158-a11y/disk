@@ -301,3 +301,73 @@ func (r *FoldersRepository) MoveFolder(ctx context.Context, userID uint64, folde
 		return nil
 	})
 }
+
+// ListContents 分页查询指定目录中的直接子目录和文件，文件夹始终排在文件之前。
+func (r *FoldersRepository) ListContents(
+	ctx context.Context,
+	userID uint64,
+	folderID uint64,
+	offset int,
+	limit int,
+	sortField string,
+	sortOrder string,
+) (*model.Folder, []model.ContentItem, int64, error) {
+	var folder model.Folder
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ?", folderID, userID).
+		First(&folder).Error
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, nil, 0, ErrFolderNotFound
+	case err != nil:
+		return nil, nil, 0, fmt.Errorf("find folder %d for contents: %w", folderID, err)
+	}
+
+	sortColumns := map[string]string{
+		"name":       "name",
+		"size":       "size",
+		"created_at": "created_at",
+		"updated_at": "updated_at",
+	}
+	column, ok := sortColumns[sortField]
+	if !ok {
+		return nil, nil, 0, fmt.Errorf("unsupported content sort field %q", sortField)
+	}
+	order := "ASC"
+	if sortOrder == "desc" {
+		order = "DESC"
+	} else if sortOrder != "asc" {
+		return nil, nil, 0, fmt.Errorf("unsupported content sort order %q", sortOrder)
+	}
+
+	baseQuery := `
+		SELECT id, 'folder' AS kind, 0 AS kind_order, parent_id, name,
+		       CAST(NULL AS SIGNED) AS size, created_at, updated_at
+		FROM folders
+		WHERE user_id = ? AND parent_id = ?
+		UNION ALL
+		SELECT f.id, 'file' AS kind, 1 AS kind_order, f.folder_id AS parent_id, f.name,
+		       p.size AS size, f.created_at, f.updated_at
+		FROM files AS f
+		JOIN physical_files AS p ON p.id = f.physical_file_id
+		WHERE f.user_id = ? AND f.folder_id = ?`
+
+	var total int64
+	countSQL := "SELECT COUNT(*) FROM (" + baseQuery + ") AS contents"
+	if err := r.db.WithContext(ctx).
+		Raw(countSQL, userID, folderID, userID, folderID).
+		Scan(&total).Error; err != nil {
+		return nil, nil, 0, fmt.Errorf("count contents of folder %d: %w", folderID, err)
+	}
+
+	items := make([]model.ContentItem, 0)
+	listSQL := "SELECT id, kind, parent_id, name, size, created_at, updated_at FROM (" + baseQuery +
+		") AS contents ORDER BY kind_order ASC, " + column + " " + order + ", name ASC, id ASC LIMIT ? OFFSET ?"
+	if err := r.db.WithContext(ctx).
+		Raw(listSQL, userID, folderID, userID, folderID, limit, offset).
+		Scan(&items).Error; err != nil {
+		return nil, nil, 0, fmt.Errorf("list contents of folder %d: %w", folderID, err)
+	}
+
+	return &folder, items, total, nil
+}

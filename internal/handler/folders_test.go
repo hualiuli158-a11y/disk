@@ -66,6 +66,37 @@ type handlerMoveFolderRepository struct {
 	receivedNewParentID uint64
 }
 
+type handlerFolderContentsRepository struct {
+	folder            *model.Folder
+	items             []model.ContentItem
+	total             int64
+	err               error
+	receivedUserID    uint64
+	receivedFolderID  uint64
+	receivedOffset    int
+	receivedLimit     int
+	receivedSortField string
+	receivedSortOrder string
+}
+
+func (f *handlerFolderContentsRepository) ListContents(
+	_ context.Context,
+	userID uint64,
+	folderID uint64,
+	offset int,
+	limit int,
+	sortField string,
+	sortOrder string,
+) (*model.Folder, []model.ContentItem, int64, error) {
+	f.receivedUserID = userID
+	f.receivedFolderID = folderID
+	f.receivedOffset = offset
+	f.receivedLimit = limit
+	f.receivedSortField = sortField
+	f.receivedSortOrder = sortOrder
+	return f.folder, f.items, f.total, f.err
+}
+
 func (f *handlerMoveFolderRepository) MoveFolder(_ context.Context, userID uint64, folderID uint64, newParentID uint64) error {
 	f.called = true
 	f.receivedUserID = userID
@@ -729,6 +760,148 @@ func TestMoveFolderHandler(t *testing.T) {
 					repo.receivedFolderID,
 					repo.receivedNewParentID,
 				)
+			}
+		})
+	}
+}
+
+func TestFolderContentsHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	createdAt := time.Date(2026, time.September, 18, 10, 0, 0, 0, time.UTC)
+	parentID := uint64(1)
+	fileSize := int64(5)
+	databaseErr := errors.New("database unavailable")
+
+	tests := []struct {
+		name       string
+		userID     any
+		folderID   string
+		query      string
+		repository *handlerFolderContentsRepository
+		wantStatus int
+		wantCode   int
+		wantItems  int
+	}{
+		{
+			name:     "success with pagination and sorting",
+			userID:   uint64(42),
+			folderID: "7",
+			query:    "?page=2&page_size=2&sort=created_at&order=desc",
+			repository: &handlerFolderContentsRepository{
+				folder: &model.Folder{ID: 7, UserID: 42, ParentID: &parentID, Name: "照片", CreatedAt: createdAt},
+				items: []model.ContentItem{
+					{ID: 8, Kind: "folder", ParentID: &parentID, Name: "旅行", CreatedAt: createdAt, UpdatedAt: createdAt},
+					{ID: 9, Kind: "file", ParentID: &parentID, Name: "photo.jpg", Size: &fileSize, CreatedAt: createdAt, UpdatedAt: createdAt},
+				},
+				total: 5,
+			},
+			wantStatus: http.StatusOK,
+			wantItems:  2,
+		},
+		{
+			name:       "empty contents",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerFolderContentsRepository{folder: &model.Folder{ID: 7, UserID: 42, Name: "空目录"}},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing user ID",
+			folderID:   "7",
+			repository: &handlerFolderContentsRepository{},
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   20004,
+		},
+		{
+			name:       "invalid folder ID",
+			userID:     uint64(42),
+			folderID:   "invalid",
+			repository: &handlerFolderContentsRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "invalid page",
+			userID:     uint64(42),
+			folderID:   "7",
+			query:      "?page=0",
+			repository: &handlerFolderContentsRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "invalid sort field",
+			userID:     uint64(42),
+			folderID:   "7",
+			query:      "?sort=storage_key",
+			repository: &handlerFolderContentsRepository{},
+			wantStatus: http.StatusBadRequest,
+			wantCode:   10001,
+		},
+		{
+			name:       "folder not found",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerFolderContentsRepository{err: repository.ErrFolderNotFound},
+			wantStatus: http.StatusNotFound,
+			wantCode:   30007,
+		},
+		{
+			name:       "database error",
+			userID:     uint64(42),
+			folderID:   "7",
+			repository: &handlerFolderContentsRepository{err: databaseErr},
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   30015,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			contentsService := service.NewFolderContentsService(tt.repository)
+			h := NewFolderContentsHandler(contentsService, logger.NewLogger(io.Discard))
+			router := gin.New()
+			router.GET("/api/folders/:id/contents", func(c *gin.Context) {
+				if tt.userID != nil {
+					c.Set("user_id", tt.userID)
+				}
+				h.ListContents(c)
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "/api/folders/"+tt.folderID+"/contents"+tt.query, nil)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("HTTP status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if tt.wantCode != 0 {
+				var payload struct {
+					Code int `json:"code"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode error response: %v", err)
+				}
+				if payload.Code != tt.wantCode {
+					t.Fatalf("error code = %d, want %d", payload.Code, tt.wantCode)
+				}
+				return
+			}
+
+			var payload FolderContentsResponse
+			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode contents response: %v", err)
+			}
+			if payload.Folder.ID != 7 || payload.Items == nil || len(payload.Items) != tt.wantItems {
+				t.Fatalf("unexpected contents response: %+v", payload)
+			}
+			if tt.name == "success with pagination and sorting" {
+				if payload.Page != 2 || payload.PageSize != 2 || payload.Total != 5 || payload.TotalPages != 3 || payload.Sort != "created_at" || payload.Order != "desc" {
+					t.Fatalf("unexpected pagination: %+v", payload)
+				}
+				if tt.repository.receivedOffset != 2 || tt.repository.receivedLimit != 2 || tt.repository.receivedSortField != "created_at" || tt.repository.receivedSortOrder != "desc" {
+					t.Fatalf("unexpected repository query: %+v", tt.repository)
+				}
 			}
 		})
 	}

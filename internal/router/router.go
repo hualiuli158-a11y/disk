@@ -22,6 +22,7 @@ type Handlers struct {
 	Children     *handler.ListFolderChildrenHandler
 	Delete       *handler.DeleteFolderHandler
 	Move         *handler.MoveFolderHandler
+	Contents     *handler.FolderContentsHandler
 	UploadFile   *handler.UploadFileHandler
 	ListFiles    *handler.ListFilesHandler
 	DownloadFile *handler.DownloadFileHandler
@@ -57,6 +58,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.GET("/folders/:id/children", handlers.Children.ListChildren)
 		authorized.DELETE("/folders/:id", handlers.Delete.DeleteFolder)
 		authorized.PATCH("/folders/:id/move", handlers.Move.MoveFolder)
+		authorized.GET("/folders/:id/contents", handlers.Contents.ListContents)
 		authorized.POST("/files", handlers.UploadFile.UploadFile)
 		authorized.GET("/folders/:id/files", handlers.ListFiles.ListFiles)
 		authorized.GET("/files/:id/download", handlers.DownloadFile.DownloadFile)

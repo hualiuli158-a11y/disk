@@ -13,6 +13,23 @@ definitions:
         example: 用户名或密码错误
         type: string
     type: object
+  handler.ContentItemResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      parent_id:
+        type: integer
+      size:
+        type: integer
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
   handler.CreateFolderRequest:
     properties:
       name:
@@ -53,6 +70,27 @@ definitions:
       sha256:
         type: string
       size:
+        type: integer
+    type: object
+  handler.FolderContentsResponse:
+    properties:
+      folder:
+        $ref: '#/definitions/handler.FolderListItemResponse'
+      items:
+        items:
+          $ref: '#/definitions/handler.ContentItemResponse'
+        type: array
+      order:
+        type: string
+      page:
+        type: integer
+      page_size:
+        type: integer
+      sort:
+        type: string
+      total:
+        type: integer
+      total_pages:
         type: integer
     type: object
   handler.FolderListItemResponse:
@@ -621,6 +659,59 @@ paths:
       security:
       - BearerAuth: []
       summary: 获取指定目录的子目录
+      tags:
+      - 文件夹
+  /api/folders/{id}/contents:
+    get:
+      description: 合并返回直接子目录和文件，文件夹始终位于文件之前，支持分页及白名单排序。
+      parameters:
+      - description: 目录 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认 50，最大 100
+        in: query
+        name: page_size
+        type: integer
+      - description: 排序字段：name、size、created_at、updated_at
+        in: query
+        name: sort
+        type: string
+      - description: 排序方向：asc、desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            $ref: '#/definitions/handler.FolderContentsResponse'
+        "400":
+          description: 查询参数不合法
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 目录不存在或无权访问
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 获取目录内容失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取目录内容
       tags:
       - 文件夹
   /api/folders/{id}/files:

@@ -495,3 +495,139 @@ func (h *MoveFolderHandler) MoveFolder(c *gin.Context) {
 		ParentID: result.ParentID,
 	})
 }
+
+type FolderContentsHandler struct {
+	folders    *service.FolderContentsService
+	baselogger *logger.Logger
+}
+
+func NewFolderContentsHandler(folders *service.FolderContentsService, baselogger *logger.Logger) *FolderContentsHandler {
+	return &FolderContentsHandler{folders: folders, baselogger: baselogger}
+}
+
+type ContentItemResponse struct {
+	ID        uint64    `json:"id"`
+	Type      string    `json:"type"`
+	ParentID  *uint64   `json:"parent_id"`
+	Name      string    `json:"name"`
+	Size      *int64    `json:"size,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type FolderContentsResponse struct {
+	Folder     FolderListItemResponse `json:"folder"`
+	Items      []ContentItemResponse  `json:"items"`
+	Page       int                    `json:"page"`
+	PageSize   int                    `json:"page_size"`
+	Total      int64                  `json:"total"`
+	TotalPages int64                  `json:"total_pages"`
+	Sort       string                 `json:"sort"`
+	Order      string                 `json:"order"`
+}
+
+// ListContents 分页返回指定目录中的子目录和文件。
+// @Summary 获取目录内容
+// @Description 合并返回直接子目录和文件，文件夹始终位于文件之前，支持分页及白名单排序。
+// @Tags 文件夹
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "目录 ID"
+// @Param page query int false "页码，默认 1"
+// @Param page_size query int false "每页数量，默认 50，最大 100"
+// @Param sort query string false "排序字段：name、size、created_at、updated_at"
+// @Param order query string false "排序方向：asc、desc"
+// @Success 200 {object} FolderContentsResponse "查询成功"
+// @Failure 400 {object} app.ErrorResponse "查询参数不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "目录不存在或无权访问"
+// @Failure 500 {object} app.ErrorResponse "获取目录内容失败"
+// @Router /api/folders/{id}/contents [get]
+func (h *FolderContentsHandler) ListContents(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	}
+
+	folderID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || folderID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+	page, err := parseOptionalPositiveInt(c.Query("page"), 1)
+	if err != nil {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+	pageSize, err := parseOptionalPositiveInt(c.Query("page_size"), service.DefaultContentPageSize)
+	if err != nil {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	result, err := h.folders.ListContents(c.Request.Context(), service.FolderContentsInput{
+		UserID:    userID,
+		FolderID:  folderID,
+		Page:      page,
+		PageSize:  pageSize,
+		SortField: c.Query("sort"),
+		SortOrder: c.Query("order"),
+	})
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrInvalidContentQuery):
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	case errors.Is(err, service.ErrFolderNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotFound)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("list folder contents failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrListContentsFailed)
+		return
+	}
+
+	items := make([]ContentItemResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, ContentItemResponse{
+			ID:        item.ID,
+			Type:      item.Kind,
+			ParentID:  item.ParentID,
+			Name:      item.Name,
+			Size:      item.Size,
+			CreatedAt: item.CreatedAt,
+			UpdatedAt: item.UpdatedAt,
+		})
+	}
+
+	app.NewResponse(c).ToResponse(FolderContentsResponse{
+		Folder: FolderListItemResponse{
+			ID:        result.Folder.ID,
+			ParentID:  result.Folder.ParentID,
+			Name:      result.Folder.Name,
+			CreatedAt: result.Folder.CreatedAt,
+		},
+		Items:      items,
+		Page:       result.Page,
+		PageSize:   result.PageSize,
+		Total:      result.Total,
+		TotalPages: result.TotalPages,
+		Sort:       result.SortField,
+		Order:      result.SortOrder,
+	})
+}
+
+func parseOptionalPositiveInt(value string, defaultValue int) (int, error) {
+	if value == "" {
+		return defaultValue, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return 0, errors.New("value must be a positive integer")
+	}
+	return parsed, nil
+}

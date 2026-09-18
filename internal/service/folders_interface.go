@@ -29,3 +29,15 @@ type DeleteFolderRepository interface {
 type MoveFolderRepository interface {
 	MoveFolder(ctx context.Context, userID uint64, folderID uint64, newParentID uint64) error
 }
+
+type FolderContentsRepository interface {
+	ListContents(
+		ctx context.Context,
+		userID uint64,
+		folderID uint64,
+		offset int,
+		limit int,
+		sortField string,
+		sortOrder string,
+	) (*model.Folder, []model.ContentItem, int64, error)
+}

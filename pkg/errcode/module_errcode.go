@@ -38,4 +38,5 @@ var (
 	ErrCannotMoveRoot     = NewError(30012, "根目录不能移动")
 	ErrInvalidFolderMove  = NewError(30013, "不能将文件夹移动到自身或其子目录")
 	ErrMoveFolderFailed   = NewError(30014, "移动文件夹失败")
+	ErrListContentsFailed = NewError(30015, "获取目录内容失败")
 )

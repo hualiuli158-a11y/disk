@@ -21,6 +21,7 @@ var (
 	ErrFolderNotEmpty      = errors.New("文件夹不为空")
 	ErrCannotMoveRoot      = errors.New("根目录不能移动")
 	ErrInvalidFolderMove   = errors.New("不能将文件夹移动到自身或其子目录")
+	ErrInvalidContentQuery = errors.New("目录内容查询参数不合法")
 )
 
 func normalizeFolderName(value string) (string, error) {
@@ -322,4 +323,127 @@ func (s *MoveFolderService) MoveFolder(ctx context.Context, input MoveFolderInpu
 	}
 
 	return &MoveFolderOutput{ID: input.FolderID, ParentID: input.NewParentID}, nil
+}
+
+const (
+	DefaultContentPageSize = 50
+	MaxContentPageSize     = 100
+)
+
+type FolderContentsService struct {
+	folders FolderContentsRepository
+}
+
+func NewFolderContentsService(folders FolderContentsRepository) *FolderContentsService {
+	return &FolderContentsService{folders: folders}
+}
+
+type FolderContentsInput struct {
+	UserID    uint64
+	FolderID  uint64
+	Page      int
+	PageSize  int
+	SortField string
+	SortOrder string
+}
+
+type ContentItem struct {
+	ID        uint64
+	Kind      string
+	ParentID  *uint64
+	Name      string
+	Size      *int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type FolderContentsOutput struct {
+	Folder     FolderListItem
+	Items      []ContentItem
+	Page       int
+	PageSize   int
+	Total      int64
+	TotalPages int64
+	SortField  string
+	SortOrder  string
+}
+
+func (s *FolderContentsService) ListContents(ctx context.Context, input FolderContentsInput) (*FolderContentsOutput, error) {
+	if input.UserID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if input.FolderID == 0 {
+		return nil, ErrFolderNotFound
+	}
+	if input.Page == 0 {
+		input.Page = 1
+	}
+	if input.PageSize == 0 {
+		input.PageSize = DefaultContentPageSize
+	}
+	if input.SortField == "" {
+		input.SortField = "name"
+	}
+	if input.SortOrder == "" {
+		input.SortOrder = "asc"
+	}
+	validSort := input.SortField == "name" || input.SortField == "size" || input.SortField == "created_at" || input.SortField == "updated_at"
+	validOrder := input.SortOrder == "asc" || input.SortOrder == "desc"
+	maxInt := int(^uint(0) >> 1)
+	if input.Page < 1 || input.PageSize < 1 || input.PageSize > MaxContentPageSize || !validSort || !validOrder || input.Page > maxInt/input.PageSize {
+		return nil, ErrInvalidContentQuery
+	}
+
+	offset := (input.Page - 1) * input.PageSize
+	folder, contents, total, err := s.folders.ListContents(
+		ctx,
+		input.UserID,
+		input.FolderID,
+		offset,
+		input.PageSize,
+		input.SortField,
+		input.SortOrder,
+	)
+	switch {
+	case errors.Is(err, repository.ErrFolderNotFound):
+		return nil, ErrFolderNotFound
+	case err != nil:
+		return nil, err
+	}
+	if folder == nil {
+		return nil, ErrFolderNotFound
+	}
+
+	items := make([]ContentItem, 0, len(contents))
+	for _, item := range contents {
+		items = append(items, ContentItem{
+			ID:        item.ID,
+			Kind:      item.Kind,
+			ParentID:  item.ParentID,
+			Name:      item.Name,
+			Size:      item.Size,
+			CreatedAt: item.CreatedAt,
+			UpdatedAt: item.UpdatedAt,
+		})
+	}
+
+	totalPages := int64(0)
+	if total > 0 {
+		totalPages = (total + int64(input.PageSize) - 1) / int64(input.PageSize)
+	}
+	return &FolderContentsOutput{
+		Folder: FolderListItem{
+			ID:        folder.ID,
+			ParentID:  folder.ParentID,
+			Name:      folder.Name,
+			CreatedAt: folder.CreatedAt,
+		},
+		Items:      items,
+		Page:       input.Page,
+		PageSize:   input.PageSize,
+		Total:      total,
+		TotalPages: totalPages,
+		SortField:  input.SortField,
+		SortOrder:  input.SortOrder,
+	}, nil
 }

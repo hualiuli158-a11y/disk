@@ -72,6 +72,7 @@ func New() (*App, error) {
 	listFolderChildrenService := service.NewListFolderChildrenService(foldersRepository)
 	deleteFolderService := service.NewDeleteFolderService(foldersRepository)
 	moveFolderService := service.NewMoveFolderService(foldersRepository)
+	folderContentsService := service.NewFolderContentsService(foldersRepository)
 	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
 	listFilesService := service.NewListFilesService(filesRepository)
 	downloadFileService := service.NewDownloadFileService(filesRepository, objectStorage)
@@ -89,6 +90,7 @@ func New() (*App, error) {
 		Children:     handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
 		Delete:       handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
 		Move:         handler.NewMoveFolderHandler(moveFolderService, baseLogger),
+		Contents:     handler.NewFolderContentsHandler(folderContentsService, baseLogger),
 		UploadFile:   handler.NewUploadFileHandler(uploadFileService, baseLogger),
 		ListFiles:    handler.NewListFilesHandler(listFilesService, baseLogger),
 		DownloadFile: handler.NewDownloadFileHandler(downloadFileService, baseLogger),
