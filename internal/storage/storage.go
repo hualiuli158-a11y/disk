@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 // Storage 定义文件内容存储需要具备的最小能力。
@@ -16,6 +18,13 @@ type Storage interface {
 	Save(ctx context.Context, key string, reader io.Reader) error
 	Open(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
+	List(ctx context.Context, prefix string) ([]ObjectInfo, error)
+}
+
+type ObjectInfo struct {
+	Key        string
+	Size       int64
+	ModifiedAt time.Time
 }
 
 // NewStorage 创建一个本地文件存储。
@@ -145,6 +154,59 @@ func (l *local) Delete(ctx context.Context, key string) error {
 	}
 
 	return nil
+}
+
+// List 返回 prefix 下的普通文件，不跟随符号链接。
+func (l *local) List(ctx context.Context, prefix string) ([]ObjectInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	base, err := l.resolve(prefix)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(base); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []ObjectInfo{}, nil
+		}
+		return nil, fmt.Errorf("读取存储前缀 %q: %w", prefix, err)
+	}
+
+	objects := make([]ObjectInfo, 0)
+	err = filepath.WalkDir(base, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(l.root, path)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("存储对象路径越界: %q", path)
+		}
+		objects = append(objects, ObjectInfo{
+			Key: filepath.ToSlash(relative), Size: info.Size(), ModifiedAt: info.ModTime(),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("枚举存储前缀 %q: %w", prefix, err)
+	}
+	sort.Slice(objects, func(i, j int) bool { return objects[i].Key < objects[j].Key })
+	return objects, nil
 }
 
 // resolve 将存储 key 转换成根目录内的本地路径。

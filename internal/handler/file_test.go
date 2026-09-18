@@ -18,6 +18,7 @@ import (
 	"disk/internal/model"
 	"disk/internal/repository"
 	"disk/internal/service"
+	"disk/internal/storage"
 	"disk/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -171,6 +172,10 @@ func (s *handlerObjectStorage) Open(_ context.Context, key string) (io.ReadClose
 func (s *handlerObjectStorage) Delete(_ context.Context, key string) error {
 	s.deletedKeys = append(s.deletedKeys, key)
 	return s.deleteErr
+}
+
+func (s *handlerObjectStorage) List(context.Context, string) ([]storage.ObjectInfo, error) {
+	return []storage.ObjectInfo{}, nil
 }
 
 func TestUploadFileHandler(t *testing.T) {

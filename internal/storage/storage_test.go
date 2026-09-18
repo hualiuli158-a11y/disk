@@ -38,6 +38,14 @@ func TestLocalStorageLifecycle(t *testing.T) {
 		t.Fatalf("文件内容不一致: got %q, want %q", data, content)
 	}
 
+	objects, err := store.List(context.Background(), "sha256")
+	if err != nil {
+		t.Fatalf("枚举文件失败: %v", err)
+	}
+	if len(objects) != 1 || objects[0].Key != key || objects[0].Size != int64(len(content)) || objects[0].ModifiedAt.IsZero() {
+		t.Fatalf("枚举结果不正确: %+v", objects)
+	}
+
 	if err := store.Delete(context.Background(), key); err != nil {
 		t.Fatalf("删除文件失败: %v", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,6 +67,18 @@ func LoadConfig() (*Config, error) {
 	if config.Storage.Root == "" {
 		config.Storage.Root = "data"
 	}
+	config.Storage.CleanupInterval, err = optionalPositiveDuration("STORAGE_CLEANUP_INTERVAL", 6*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	config.Storage.OrphanGrace, err = optionalPositiveDuration("STORAGE_ORPHAN_GRACE", 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	config.Storage.CleanupBatch, err = optionalPositiveInt("STORAGE_CLEANUP_BATCH", 1000)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -104,5 +117,32 @@ type JwtConfig struct {
 }
 
 type StorageConfig struct {
-	Root string
+	Root            string
+	CleanupInterval time.Duration
+	OrphanGrace     time.Duration
+	CleanupBatch    int
+}
+
+func optionalPositiveDuration(name string, fallback time.Duration) (time.Duration, error) {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback, nil
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil || duration <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration", name)
+	}
+	return duration, nil
+}
+
+func optionalPositiveInt(name string, fallback int) (int, error) {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", name)
+	}
+	return parsed, nil
 }

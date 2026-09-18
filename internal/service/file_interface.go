@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"disk/internal/model"
+	"disk/internal/storage"
 )
 
 type UploadFileRepository interface {
@@ -43,4 +44,5 @@ type ObjectStorage interface {
 	Save(ctx context.Context, key string, reader io.Reader) error
 	Open(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
+	List(ctx context.Context, prefix string) ([]storage.ObjectInfo, error)
 }

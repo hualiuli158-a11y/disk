@@ -1,10 +1,12 @@
 package bootstrap
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"disk/internal/database"
 	"disk/internal/handler"
@@ -21,9 +23,11 @@ import (
 
 // App 保存应用运行所需的资源，并负责它们的生命周期。
 type App struct {
-	config *setting.Config
-	router *gin.Engine
-	sqlDB  *sql.DB
+	config        *setting.Config
+	router        *gin.Engine
+	sqlDB         *sql.DB
+	cleanupCancel context.CancelFunc
+	cleanupDone   chan struct{}
 }
 
 // New 加载配置、初始化基础设施并组装所有业务依赖。
@@ -58,6 +62,7 @@ func New() (*App, error) {
 	foldersRepository := repository.NewFoldersRepository(db)
 	filesRepository := repository.NewFilesRepository(db)
 	searchRepository := repository.NewSearchRepository(db)
+	cleanupRepository := repository.NewCleanupRepository(db)
 	objectStorage, err := storage.NewStorage(config.Storage.Root)
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
@@ -82,6 +87,12 @@ func New() (*App, error) {
 	renameFileService := service.NewRenameFileService(filesRepository)
 	moveFileService := service.NewMoveFileService(filesRepository)
 	searchService := service.NewSearchService(searchRepository)
+	orphanCleanupService := service.NewOrphanCleanupService(
+		cleanupRepository,
+		objectStorage,
+		config.Storage.OrphanGrace,
+		config.Storage.CleanupBatch,
+	)
 
 	handlers := router.Handlers{
 		Login:        handler.NewLoginHandler(loginService, baseLogger),
@@ -108,11 +119,23 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("create router: %w", err)
 	}
 
+	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	cleanupDone := make(chan struct{})
+	go runOrphanCleanupWorker(
+		cleanupCtx,
+		orphanCleanupService,
+		config.Storage.CleanupInterval,
+		baseLogger.WithFields(logger.Fields{"module": "orphan_cleanup"}),
+		cleanupDone,
+	)
+
 	cleanup = false
 	return &App{
-		config: config,
-		router: httpRouter,
-		sqlDB:  sqlDB,
+		config:        config,
+		router:        httpRouter,
+		sqlDB:         sqlDB,
+		cleanupCancel: cleanupCancel,
+		cleanupDone:   cleanupDone,
 	}, nil
 }
 
@@ -127,8 +150,52 @@ func (a *App) Run() error {
 
 // Close 释放应用持有的资源。
 func (a *App) Close() error {
+	if a.cleanupCancel != nil {
+		a.cleanupCancel()
+	}
+	if a.cleanupDone != nil {
+		<-a.cleanupDone
+	}
 	if err := a.sqlDB.Close(); err != nil {
 		return fmt.Errorf("close database: %w", err)
 	}
 	return nil
+}
+
+func runOrphanCleanupWorker(
+	ctx context.Context,
+	cleanup *service.OrphanCleanupService,
+	interval time.Duration,
+	workerLogger *logger.Logger,
+	done chan<- struct{},
+) {
+	defer close(done)
+	run := func() {
+		result, err := cleanup.Run(ctx)
+		if err != nil {
+			if ctx.Err() == nil {
+				workerLogger.Errorf("orphan cleanup failed: %v", err)
+			}
+			return
+		}
+		workerLogger.WithFields(logger.Fields{
+			"database_candidates": result.DatabaseCandidates,
+			"database_deleted":    result.DatabaseDeleted,
+			"storage_scanned":     result.StorageScanned,
+			"storage_deleted":     result.StorageDeleted,
+			"failures":            result.Failures,
+		}).Info("orphan cleanup completed")
+	}
+
+	run()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			run()
+		}
+	}
 }
