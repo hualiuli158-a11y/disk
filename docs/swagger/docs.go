@@ -108,11 +108,11 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "删除逻辑文件并扣减用户额度；物理文件没有其他引用时同时清理底层存储对象。",
+                "description": "将逻辑文件移入回收站；恢复期限内保留用户额度和物理文件。",
                 "tags": [
                     "文件"
                 ],
-                "summary": "删除文件",
+                "summary": "删除文件到回收站",
                 "parameters": [
                     {
                         "type": "integer",
@@ -480,14 +480,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "删除当前用户拥有的非根目录。目录中存在子目录或文件时不能删除。",
+                "description": "将当前用户拥有的非根目录及当前可见子树移入回收站。",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "文件夹"
                 ],
-                "summary": "删除空目录",
+                "summary": "删除目录到回收站",
                 "parameters": [
                     {
                         "type": "integer",
@@ -520,7 +520,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "根目录不能删除或文件夹不为空",
+                        "description": "根目录不能删除",
                         "schema": {
                             "$ref": "#/definitions/app.ErrorResponse"
                         }
@@ -1050,6 +1050,170 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/trash": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "回收站"
+                ],
+                "summary": "获取回收站",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量，默认 50，最大 100",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ListTrashResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "分页参数不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "回收站操作失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/trash/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "回收站"
+                ],
+                "summary": "永久删除回收站条目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "回收站条目 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "永久删除成功"
+                    },
+                    "400": {
+                        "description": "ID 不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "回收站条目不存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "回收站操作失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/trash/{id}/restore": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "回收站"
+                ],
+                "summary": "恢复回收站条目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "回收站条目 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "恢复成功"
+                    },
+                    "400": {
+                        "description": "ID 不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "回收站条目不存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "恢复位置存在同名资源",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "回收站操作失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "使用用户名和密码完成身份认证，成功后返回访问令牌。用户名不存在和密码错误统一返回“用户名或密码错误”。",
@@ -1353,6 +1517,29 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.ListTrashResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.TrashItemResponse"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
         "handler.LoginRequest": {
             "type": "object",
             "required": [
@@ -1573,6 +1760,32 @@ const docTemplate = `{
                 },
                 "total_pages": {
                     "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.TrashItemResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "original_parent_id": {
+                    "type": "integer"
+                },
+                "resource_id": {
+                    "type": "integer"
+                },
+                "trashed_at": {
+                    "type": "string"
                 },
                 "type": {
                     "type": "string"

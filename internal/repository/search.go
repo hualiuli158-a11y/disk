@@ -47,11 +47,11 @@ func (r *SearchRepository) Search(
 	pattern := "%" + query + "%"
 	folderQuery := `SELECT id, 'folder' AS kind, 0 AS kind_order, parent_id, name,
 		CAST(NULL AS SIGNED) AS size, created_at, updated_at
-		FROM folders WHERE user_id = ? AND parent_id IS NOT NULL AND name LIKE ?`
+		FROM folders WHERE user_id = ? AND parent_id IS NOT NULL AND deleted_at IS NULL AND name LIKE ?`
 	fileQuery := `SELECT f.id, 'file' AS kind, 1 AS kind_order, f.folder_id AS parent_id, f.name,
 		p.size AS size, f.created_at, f.updated_at
 		FROM files AS f JOIN physical_files AS p ON p.id = f.physical_file_id
-		WHERE f.user_id = ? AND f.name LIKE ?`
+		WHERE f.user_id = ? AND f.deleted_at IS NULL AND f.name LIKE ?`
 
 	var baseQuery string
 	var args []any

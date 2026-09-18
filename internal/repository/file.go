@@ -165,74 +165,6 @@ func (r *FilesRepository) FindFileForDownload(ctx context.Context, userID uint64
 	}
 }
 
-// DeleteFile 删除逻辑文件、扣减用户额度，并在没有其他引用时删除物理文件记录。
-// storageKey 和 deletePhysical 用于数据库提交后清理存储对象。
-func (r *FilesRepository) DeleteFile(ctx context.Context, userID uint64, fileID uint64) (storageKey string, deletePhysical bool, err error) {
-	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var user model.User
-		err := tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Select("id").
-			Where("id = ?", userID).
-			First(&user).Error
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			return ErrUserNotFound
-		case err != nil:
-			return fmt.Errorf("find user %d for file delete: %w", userID, err)
-		}
-
-		var logical model.File
-		err = tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ? AND user_id = ?", fileID, userID).
-			First(&logical).Error
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			return ErrFileNotFound
-		case err != nil:
-			return fmt.Errorf("find file %d for delete: %w", fileID, err)
-		}
-
-		var physical model.PhysicalFile
-		if err := tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ?", logical.PhysicalFileID).
-			First(&physical).Error; err != nil {
-			return fmt.Errorf("find physical file %d for delete: %w", logical.PhysicalFileID, err)
-		}
-
-		if err := tx.Delete(&logical).Error; err != nil {
-			return fmt.Errorf("delete logical file %d: %w", fileID, err)
-		}
-		if err := tx.Model(&model.User{}).
-			Where("id = ?", userID).
-			UpdateColumn("used_quota", gorm.Expr("GREATEST(used_quota - ?, 0)", physical.Size)).Error; err != nil {
-			return fmt.Errorf("decrease used quota for user %d: %w", userID, err)
-		}
-
-		var references int64
-		if err := tx.Model(&model.File{}).
-			Where("physical_file_id = ?", physical.ID).
-			Count(&references).Error; err != nil {
-			return fmt.Errorf("count references to physical file %d: %w", physical.ID, err)
-		}
-		if references == 0 {
-			if err := tx.Delete(&physical).Error; err != nil {
-				return fmt.Errorf("delete physical file %d: %w", physical.ID, err)
-			}
-			storageKey = physical.StorageKey
-			deletePhysical = true
-		}
-
-		return nil
-	})
-	if err != nil {
-		return "", false, err
-	}
-	return storageKey, deletePhysical, nil
-}
-
 // RenameFile 重命名当前用户拥有的逻辑文件。
 func (r *FilesRepository) RenameFile(ctx context.Context, userID uint64, fileID uint64, name string) error {
 	result := r.db.WithContext(ctx).
@@ -263,6 +195,14 @@ func (r *FilesRepository) RenameFile(ctx context.Context, userID uint64, fileID 
 // MoveFile 将当前用户拥有的逻辑文件移动到新的目录。
 func (r *FilesRepository) MoveFile(ctx context.Context, userID uint64, fileID uint64, folderID uint64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user model.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", userID).First(&user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrUserNotFound
+			}
+			return fmt.Errorf("lock user %d for file move: %w", userID, err)
+		}
+
 		var file model.File
 		err := tx.
 			Clauses(clause.Locking{Strength: "UPDATE"}).

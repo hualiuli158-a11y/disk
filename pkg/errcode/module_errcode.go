@@ -10,6 +10,12 @@ var (
 )
 
 var (
+	ErrTrashNotFound        = NewError(50001, "回收站条目不存在")
+	ErrTrashRestoreConflict = NewError(50002, "恢复位置存在同名资源")
+	ErrTrashOperationFailed = NewError(50003, "回收站操作失败")
+)
+
+var (
 	ErrInvalidFileName      = NewError(40001, "文件名不合法")
 	ErrUploadFolderNotFound = NewError(40002, "上传目录不存在")
 	ErrFileExists           = NewError(40003, "同名文件已存在")
@@ -35,7 +41,6 @@ var (
 	ErrFolderNotFound     = NewError(30007, "文件夹不存在")
 	ErrRenameFolderFailed = NewError(30008, "重命名文件夹失败")
 	ErrCannotDeleteRoot   = NewError(30009, "根目录不能删除")
-	ErrFolderNotEmpty     = NewError(30010, "文件夹不为空")
 	ErrDeleteFolderFailed = NewError(30011, "删除文件夹失败")
 	ErrCannotMoveRoot     = NewError(30012, "根目录不能移动")
 	ErrInvalidFolderMove  = NewError(30013, "不能将文件夹移动到自身或其子目录")

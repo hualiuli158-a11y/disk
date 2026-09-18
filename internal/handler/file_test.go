@@ -97,8 +97,6 @@ type handlerDownloadFileRepository struct {
 }
 
 type handlerDeleteFileRepository struct {
-	storageKey     string
-	deletePhysical bool
 	err            error
 	receivedUserID uint64
 	receivedFileID uint64
@@ -136,10 +134,10 @@ func (f *handlerRenameFileRepository) RenameFile(_ context.Context, userID uint6
 	return f.err
 }
 
-func (f *handlerDeleteFileRepository) DeleteFile(_ context.Context, userID uint64, fileID uint64) (string, bool, error) {
+func (f *handlerDeleteFileRepository) TrashFile(_ context.Context, userID uint64, fileID uint64, _ time.Time, _ time.Time) error {
 	f.receivedUserID = userID
 	f.receivedFileID = fileID
-	return f.storageKey, f.deletePhysical, f.err
+	return f.err
 }
 
 func (f *handlerDownloadFileRepository) FindFileForDownload(_ context.Context, userID uint64, fileID uint64) (*model.File, error) {
@@ -654,17 +652,13 @@ func TestDownloadFileHandler(t *testing.T) {
 func TestDeleteFileHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	databaseErr := errors.New("database unavailable")
-	cleanupErr := errors.New("cleanup unavailable")
-
 	tests := []struct {
-		name          string
-		userID        any
-		fileID        string
-		repository    *handlerDeleteFileRepository
-		cleanupErr    error
-		wantStatus    int
-		wantCode      int
-		wantDeleteKey string
+		name       string
+		userID     any
+		fileID     string
+		repository *handlerDeleteFileRepository
+		wantStatus int
+		wantCode   int
 	}{
 		{
 			name:       "success keeps shared physical file",
@@ -672,27 +666,6 @@ func TestDeleteFileHandler(t *testing.T) {
 			fileID:     "2",
 			repository: &handlerDeleteFileRepository{},
 			wantStatus: http.StatusNoContent,
-		},
-		{
-			name:   "success deletes unreferenced physical file",
-			userID: uint64(42),
-			fileID: "2",
-			repository: &handlerDeleteFileRepository{
-				storageKey: "objects/aa/value", deletePhysical: true,
-			},
-			wantStatus:    http.StatusNoContent,
-			wantDeleteKey: "objects/aa/value",
-		},
-		{
-			name:   "cleanup failure preserves successful deletion",
-			userID: uint64(42),
-			fileID: "2",
-			repository: &handlerDeleteFileRepository{
-				storageKey: "objects/aa/value", deletePhysical: true,
-			},
-			cleanupErr:    cleanupErr,
-			wantStatus:    http.StatusNoContent,
-			wantDeleteKey: "objects/aa/value",
 		},
 		{
 			name:       "missing user ID",
@@ -729,8 +702,7 @@ func TestDeleteFileHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			objects := &handlerObjectStorage{deleteErr: tt.cleanupErr}
-			filesService := service.NewDeleteFileService(tt.repository, objects)
+			filesService := service.NewDeleteFileService(tt.repository)
 			h := NewDeleteFileHandler(filesService, logger.NewLogger(io.Discard))
 			router := gin.New()
 			router.DELETE("/api/files/:id", func(c *gin.Context) {
@@ -765,13 +737,6 @@ func TestDeleteFileHandler(t *testing.T) {
 			}
 			if tt.repository.receivedUserID != 42 || tt.repository.receivedFileID != 2 {
 				t.Fatalf("unexpected repository input: user=%d file=%d", tt.repository.receivedUserID, tt.repository.receivedFileID)
-			}
-			if tt.wantDeleteKey == "" {
-				if len(objects.deletedKeys) != 0 {
-					t.Fatalf("unexpected deleted keys: %v", objects.deletedKeys)
-				}
-			} else if len(objects.deletedKeys) != 1 || objects.deletedKeys[0] != tt.wantDeleteKey {
-				t.Fatalf("deleted keys = %v, want %q", objects.deletedKeys, tt.wantDeleteKey)
 			}
 		})
 	}

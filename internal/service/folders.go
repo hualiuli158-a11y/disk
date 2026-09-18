@@ -18,11 +18,12 @@ var (
 	ErrRootFolderNotFound  = errors.New("根目录不存在")
 	ErrFolderNotFound      = errors.New("文件夹不存在")
 	ErrCannotDeleteRoot    = errors.New("根目录不能删除")
-	ErrFolderNotEmpty      = errors.New("文件夹不为空")
 	ErrCannotMoveRoot      = errors.New("根目录不能移动")
 	ErrInvalidFolderMove   = errors.New("不能将文件夹移动到自身或其子目录")
 	ErrInvalidContentQuery = errors.New("目录内容查询参数不合法")
 )
+
+const DefaultTrashRetention = 30 * 24 * time.Hour
 
 func normalizeFolderName(value string) (string, error) {
 	name := strings.TrimSpace(value)
@@ -68,6 +69,8 @@ func (ch *ChildFoldersCreateService) CreateChildFolder(ctx context.Context, inpu
 	}
 	output, err := ch.folders.CreateChildFolder(ctx, input.UserID, input.ParentID, name)
 	switch {
+	case errors.Is(err, repository.ErrUserNotFound):
+		return nil, ErrFolderUserNotFound
 	case errors.Is(err, repository.ErrParentNotFound):
 		return nil, ErrParentNotFound
 
@@ -247,10 +250,11 @@ func (s *ListFolderChildrenService) ListChildren(ctx context.Context, input List
 
 type DeleteFolderService struct {
 	folders DeleteFolderRepository
+	now     func() time.Time
 }
 
 func NewDeleteFolderService(folders DeleteFolderRepository) *DeleteFolderService {
-	return &DeleteFolderService{folders: folders}
+	return &DeleteFolderService{folders: folders, now: time.Now}
 }
 
 type DeleteFolderInput struct {
@@ -266,14 +270,13 @@ func (s *DeleteFolderService) DeleteFolder(ctx context.Context, input DeleteFold
 		return ErrFolderNotFound
 	}
 
-	err := s.folders.DeleteEmptyFolder(ctx, input.UserID, input.FolderID)
+	now := s.now()
+	err := s.folders.TrashFolder(ctx, input.UserID, input.FolderID, now, now.Add(DefaultTrashRetention))
 	switch {
 	case errors.Is(err, repository.ErrFolderNotFound):
 		return ErrFolderNotFound
 	case errors.Is(err, repository.ErrCannotDeleteRoot):
 		return ErrCannotDeleteRoot
-	case errors.Is(err, repository.ErrFolderNotEmpty):
-		return ErrFolderNotEmpty
 	case err != nil:
 		return err
 	default:

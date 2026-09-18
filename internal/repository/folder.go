@@ -17,7 +17,6 @@ var (
 	ErrRootFolderNotFound  = errors.New("根目录不存在")
 	ErrFolderNotFound      = errors.New("文件夹不存在")
 	ErrCannotDeleteRoot    = errors.New("根目录不能删除")
-	ErrFolderNotEmpty      = errors.New("文件夹不为空")
 	ErrCannotMoveRoot      = errors.New("根目录不能移动")
 	ErrInvalidFolderMove   = errors.New("不能将文件夹移动到自身或其子目录")
 )
@@ -35,6 +34,14 @@ func (r *FoldersRepository) CreateChildFolder(ctx context.Context, userID uint64
 	var child model.Folder
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user model.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", userID).First(&user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrUserNotFound
+			}
+			return fmt.Errorf("lock user %d for folder creation: %w", userID, err)
+		}
+
 		var parent model.Folder
 
 		err := tx.
@@ -149,58 +156,6 @@ func (r *FoldersRepository) ListChildren(ctx context.Context, userID uint64, fol
 
 	folder.Children = children
 	return &folder, nil
-}
-
-// DeleteEmptyFolder 删除当前用户拥有的空目录。根目录、包含子目录或文件的目录不能删除。
-func (r *FoldersRepository) DeleteEmptyFolder(ctx context.Context, userID uint64, folderID uint64) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var folder model.Folder
-		err := tx.
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Select("id", "parent_id").
-			Where("id = ? AND user_id = ?", folderID, userID).
-			First(&folder).Error
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			return ErrFolderNotFound
-		case err != nil:
-			return fmt.Errorf("find folder %d for delete: %w", folderID, err)
-		}
-
-		if folder.ParentID == nil {
-			return ErrCannotDeleteRoot
-		}
-
-		var childCount int64
-		if err := tx.Model(&model.Folder{}).
-			Where("parent_id = ?", folderID).
-			Count(&childCount).Error; err != nil {
-			return fmt.Errorf("count child folders of %d: %w", folderID, err)
-		}
-		if childCount > 0 {
-			return ErrFolderNotEmpty
-		}
-
-		var fileCount int64
-		if err := tx.Model(&model.File{}).
-			Where("folder_id = ?", folderID).
-			Count(&fileCount).Error; err != nil {
-			return fmt.Errorf("count files in folder %d: %w", folderID, err)
-		}
-		if fileCount > 0 {
-			return ErrFolderNotEmpty
-		}
-
-		result := tx.Where("id = ? AND user_id = ?", folderID, userID).Delete(&model.Folder{})
-		if result.Error != nil {
-			return fmt.Errorf("delete folder %d: %w", folderID, result.Error)
-		}
-		if result.RowsAffected == 0 {
-			return ErrFolderNotFound
-		}
-
-		return nil
-	})
 }
 
 // MoveFolder 将当前用户拥有的非根目录移动到新的父目录。
@@ -344,13 +299,13 @@ func (r *FoldersRepository) ListContents(
 		SELECT id, 'folder' AS kind, 0 AS kind_order, parent_id, name,
 		       CAST(NULL AS SIGNED) AS size, created_at, updated_at
 		FROM folders
-		WHERE user_id = ? AND parent_id = ?
+		WHERE user_id = ? AND parent_id = ? AND deleted_at IS NULL
 		UNION ALL
 		SELECT f.id, 'file' AS kind, 1 AS kind_order, f.folder_id AS parent_id, f.name,
 		       p.size AS size, f.created_at, f.updated_at
 		FROM files AS f
 		JOIN physical_files AS p ON p.id = f.physical_file_id
-		WHERE f.user_id = ? AND f.folder_id = ?`
+		WHERE f.user_id = ? AND f.folder_id = ? AND f.deleted_at IS NULL`
 
 	var total int64
 	countSQL := "SELECT COUNT(*) FROM (" + baseQuery + ") AS contents"

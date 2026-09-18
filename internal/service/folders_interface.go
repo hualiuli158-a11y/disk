@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"time"
+
 	"disk/internal/model"
 )
 
@@ -23,7 +25,7 @@ type FolderChildrenRepository interface {
 }
 
 type DeleteFolderRepository interface {
-	DeleteEmptyFolder(ctx context.Context, userID uint64, folderID uint64) error
+	TrashFolder(ctx context.Context, userID uint64, folderID uint64, trashedAt time.Time, expiresAt time.Time) error
 }
 
 type MoveFolderRepository interface {

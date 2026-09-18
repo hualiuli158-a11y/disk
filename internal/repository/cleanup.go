@@ -51,7 +51,7 @@ func (r *CleanupRepository) DeletePhysicalFileIfUnreferenced(ctx context.Context
 		}
 
 		var references int64
-		if err := tx.Model(&model.File{}).
+		if err := tx.Unscoped().Model(&model.File{}).
 			Where("physical_file_id = ?", physicalID).
 			Count(&references).Error; err != nil {
 			return fmt.Errorf("count references to physical file %d: %w", physicalID, err)

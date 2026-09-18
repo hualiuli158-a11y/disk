@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"io"
+	"time"
 
 	"disk/internal/model"
 	"disk/internal/storage"
@@ -29,7 +30,7 @@ type DownloadFileRepository interface {
 }
 
 type DeleteFileRepository interface {
-	DeleteFile(ctx context.Context, userID uint64, fileID uint64) (storageKey string, deletePhysical bool, err error)
+	TrashFile(ctx context.Context, userID uint64, fileID uint64, trashedAt time.Time, expiresAt time.Time) error
 }
 
 type RenameFileRepository interface {

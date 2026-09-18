@@ -261,42 +261,34 @@ func (s *DownloadFileService) DownloadFile(ctx context.Context, userID uint64, f
 }
 
 type DeleteFileService struct {
-	files   DeleteFileRepository
-	objects ObjectStorage
+	files DeleteFileRepository
+	now   func() time.Time
 }
 
-func NewDeleteFileService(files DeleteFileRepository, objects ObjectStorage) *DeleteFileService {
-	return &DeleteFileService{files: files, objects: objects}
+func NewDeleteFileService(files DeleteFileRepository) *DeleteFileService {
+	return &DeleteFileService{files: files, now: time.Now}
 }
 
-type DeleteFileOutput struct {
-	CleanupError error
-}
-
-func (s *DeleteFileService) DeleteFile(ctx context.Context, userID uint64, fileID uint64) (*DeleteFileOutput, error) {
+func (s *DeleteFileService) DeleteFile(ctx context.Context, userID uint64, fileID uint64) error {
 	if userID == 0 {
-		return nil, ErrFolderUserNotFound
+		return ErrFolderUserNotFound
 	}
 	if fileID == 0 {
-		return nil, ErrFileNotFound
+		return ErrFileNotFound
 	}
 
-	storageKey, deletePhysical, err := s.files.DeleteFile(ctx, userID, fileID)
+	now := s.now()
+	err := s.files.TrashFile(ctx, userID, fileID, now, now.Add(DefaultTrashRetention))
 	switch {
 	case errors.Is(err, repository.ErrUserNotFound):
-		return nil, ErrFolderUserNotFound
+		return ErrFolderUserNotFound
 	case errors.Is(err, repository.ErrFileNotFound):
-		return nil, ErrFileNotFound
+		return ErrFileNotFound
 	case err != nil:
-		return nil, err
+		return err
+	default:
+		return nil
 	}
-
-	output := &DeleteFileOutput{}
-	if deletePhysical && storageKey != "" {
-		// 数据库已经提交；存储清理失败时保留成功语义，交由日志和后续清理任务处理孤儿对象。
-		output.CleanupError = s.objects.Delete(context.WithoutCancel(ctx), storageKey)
-	}
-	return output, nil
 }
 
 type RenameFileService struct {
@@ -375,6 +367,8 @@ func (s *MoveFileService) MoveFile(ctx context.Context, input MoveFileInput) (*M
 
 	err := s.files.MoveFile(ctx, input.UserID, input.FileID, input.FolderID)
 	switch {
+	case errors.Is(err, repository.ErrUserNotFound):
+		return nil, ErrFolderUserNotFound
 	case errors.Is(err, repository.ErrFileNotFound):
 		return nil, ErrFileNotFound
 	case errors.Is(err, repository.ErrFileFolderNotFound):

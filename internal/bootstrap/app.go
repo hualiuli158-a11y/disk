@@ -63,6 +63,7 @@ func New() (*App, error) {
 	filesRepository := repository.NewFilesRepository(db)
 	searchRepository := repository.NewSearchRepository(db)
 	cleanupRepository := repository.NewCleanupRepository(db)
+	trashRepository := repository.NewTrashRepository(db)
 	objectStorage, err := storage.NewStorage(config.Storage.Root)
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
@@ -77,16 +78,17 @@ func New() (*App, error) {
 	listFoldersService := service.NewListFoldersService(foldersRepository)
 	renameFolderService := service.NewRenameFolderService(foldersRepository)
 	listFolderChildrenService := service.NewListFolderChildrenService(foldersRepository)
-	deleteFolderService := service.NewDeleteFolderService(foldersRepository)
+	deleteFolderService := service.NewDeleteFolderService(trashRepository)
 	moveFolderService := service.NewMoveFolderService(foldersRepository)
 	folderContentsService := service.NewFolderContentsService(foldersRepository)
 	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
 	listFilesService := service.NewListFilesService(filesRepository)
 	downloadFileService := service.NewDownloadFileService(filesRepository, objectStorage)
-	deleteFileService := service.NewDeleteFileService(filesRepository, objectStorage)
+	deleteFileService := service.NewDeleteFileService(trashRepository)
 	renameFileService := service.NewRenameFileService(filesRepository)
 	moveFileService := service.NewMoveFileService(filesRepository)
 	searchService := service.NewSearchService(searchRepository)
+	trashService := service.NewTrashService(trashRepository, objectStorage)
 	orphanCleanupService := service.NewOrphanCleanupService(
 		cleanupRepository,
 		objectStorage,
@@ -113,6 +115,7 @@ func New() (*App, error) {
 		RenameFile:   handler.NewRenameFileHandler(renameFileService, baseLogger),
 		MoveFile:     handler.NewMoveFileHandler(moveFileService, baseLogger),
 		Search:       handler.NewSearchHandler(searchService, baseLogger),
+		Trash:        handler.NewTrashHandler(trashService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {
@@ -124,7 +127,9 @@ func New() (*App, error) {
 	go runOrphanCleanupWorker(
 		cleanupCtx,
 		orphanCleanupService,
+		trashService,
 		config.Storage.CleanupInterval,
+		config.Storage.CleanupBatch,
 		baseLogger.WithFields(logger.Fields{"module": "orphan_cleanup"}),
 		cleanupDone,
 	)
@@ -165,7 +170,9 @@ func (a *App) Close() error {
 func runOrphanCleanupWorker(
 	ctx context.Context,
 	cleanup *service.OrphanCleanupService,
+	trash *service.TrashService,
 	interval time.Duration,
+	batch int,
 	workerLogger *logger.Logger,
 	done chan<- struct{},
 ) {
@@ -185,6 +192,20 @@ func runOrphanCleanupWorker(
 			"storage_deleted":     result.StorageDeleted,
 			"failures":            result.Failures,
 		}).Info("orphan cleanup completed")
+
+		trashResult, err := trash.PurgeExpiredTrash(ctx, time.Now(), batch)
+		if err != nil {
+			if ctx.Err() == nil {
+				workerLogger.Errorf("expired trash cleanup failed: %v", err)
+			}
+			return
+		}
+		workerLogger.WithFields(logger.Fields{
+			"trash_candidates":       trashResult.Candidates,
+			"trash_deleted":          trashResult.Deleted,
+			"trash_cleanup_failures": trashResult.CleanupFailures,
+			"trash_failures":         trashResult.Failures,
+		}).Info("expired trash cleanup completed")
 	}
 
 	run()

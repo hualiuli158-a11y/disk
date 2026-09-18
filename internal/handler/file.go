@@ -284,9 +284,9 @@ func NewDeleteFileHandler(files *service.DeleteFileService, baselogger *logger.L
 	return &DeleteFileHandler{files: files, baselogger: baselogger}
 }
 
-// DeleteFile 删除当前用户拥有的逻辑文件。
-// @Summary 删除文件
-// @Description 删除逻辑文件并扣减用户额度；物理文件没有其他引用时同时清理底层存储对象。
+// DeleteFile 将当前用户拥有的逻辑文件移入回收站。
+// @Summary 删除文件到回收站
+// @Description 将逻辑文件移入回收站；恢复期限内保留用户额度和物理文件。
 // @Tags 文件
 // @Security BearerAuth
 // @Param id path int true "文件 ID"
@@ -311,7 +311,7 @@ func (h *DeleteFileHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
-	result, err := h.files.DeleteFile(c.Request.Context(), userID, fileID)
+	err = h.files.DeleteFile(c.Request.Context(), userID, fileID)
 	switch {
 	case errors.Is(err, service.ErrFolderUserNotFound):
 		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
@@ -324,10 +324,6 @@ func (h *DeleteFileHandler) DeleteFile(c *gin.Context) {
 		app.NewResponse(c).ToErrorResponse(errcode.ErrDeleteFileFailed)
 		return
 	}
-	if result.CleanupError != nil {
-		h.baselogger.WithContext(c.Request.Context()).Errorf("cleanup orphan storage object failed: %v", result.CleanupError)
-	}
-
 	c.Status(http.StatusNoContent)
 }
 

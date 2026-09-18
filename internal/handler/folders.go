@@ -72,6 +72,9 @@ func (ch *ChildFoldersCreateHandler) CreateChildFolder(c *gin.Context) {
 		Name:     req.Name,
 	})
 	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
 	case errors.Is(err, service.ErrInvalidFolderName):
 		app.NewResponse(c).ToErrorResponse(errcode.ErrInvalidFolderName)
 		return
@@ -350,9 +353,9 @@ func NewDeleteFolderHandler(folders *service.DeleteFolderService, baselogger *lo
 	return &DeleteFolderHandler{folders: folders, baselogger: baselogger}
 }
 
-// DeleteFolder 删除当前用户拥有的空目录。
-// @Summary 删除空目录
-// @Description 删除当前用户拥有的非根目录。目录中存在子目录或文件时不能删除。
+// DeleteFolder 将当前用户拥有的目录移入回收站。
+// @Summary 删除目录到回收站
+// @Description 将当前用户拥有的非根目录及当前可见子树移入回收站。
 // @Tags 文件夹
 // @Produce json
 // @Security BearerAuth
@@ -361,7 +364,7 @@ func NewDeleteFolderHandler(folders *service.DeleteFolderService, baselogger *lo
 // @Failure 400 {object} app.ErrorResponse "文件夹 ID 不合法"
 // @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
 // @Failure 404 {object} app.ErrorResponse "文件夹不存在或无权访问"
-// @Failure 409 {object} app.ErrorResponse "根目录不能删除或文件夹不为空"
+// @Failure 409 {object} app.ErrorResponse "根目录不能删除"
 // @Failure 500 {object} app.ErrorResponse "删除文件夹失败"
 // @Router /api/folders/{id} [delete]
 func (h *DeleteFolderHandler) DeleteFolder(c *gin.Context) {
@@ -393,9 +396,6 @@ func (h *DeleteFolderHandler) DeleteFolder(c *gin.Context) {
 		return
 	case errors.Is(err, service.ErrCannotDeleteRoot):
 		app.NewResponse(c).ToErrorResponse(errcode.ErrCannotDeleteRoot)
-		return
-	case errors.Is(err, service.ErrFolderNotEmpty):
-		app.NewResponse(c).ToErrorResponse(errcode.ErrFolderNotEmpty)
 		return
 	case err != nil:
 		h.baselogger.WithContext(c.Request.Context()).Errorf("delete folder failed: %v", err)

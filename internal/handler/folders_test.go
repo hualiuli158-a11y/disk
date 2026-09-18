@@ -105,7 +105,7 @@ func (f *handlerMoveFolderRepository) MoveFolder(_ context.Context, userID uint6
 	return f.err
 }
 
-func (f *handlerDeleteFolderRepository) DeleteEmptyFolder(_ context.Context, userID uint64, folderID uint64) error {
+func (f *handlerDeleteFolderRepository) TrashFolder(_ context.Context, userID uint64, folderID uint64, _ time.Time, _ time.Time) error {
 	f.called = true
 	f.receivedUserID = userID
 	f.receivedFolderID = folderID
@@ -540,15 +540,6 @@ func TestDeleteFolderHandler(t *testing.T) {
 			repositoryErr: repository.ErrCannotDeleteRoot,
 			wantStatus:    http.StatusConflict,
 			wantCode:      30009,
-			wantRepoCall:  true,
-		},
-		{
-			name:          "folder not empty",
-			userID:        uint64(42),
-			folderID:      "7",
-			repositoryErr: repository.ErrFolderNotEmpty,
-			wantStatus:    http.StatusConflict,
-			wantCode:      30010,
 			wantRepoCall:  true,
 		},
 		{

@@ -86,8 +86,6 @@ func (e *Error) StatusCode() int {
 		return http.StatusInternalServerError
 	case ErrCannotDeleteRoot.Code():
 		return http.StatusConflict
-	case ErrFolderNotEmpty.Code():
-		return http.StatusConflict
 	case ErrDeleteFolderFailed.Code():
 		return http.StatusInternalServerError
 	case ErrCannotMoveRoot.Code():
@@ -123,6 +121,12 @@ func (e *Error) StatusCode() int {
 	case ErrQuotaExceeded.Code():
 		return http.StatusInsufficientStorage
 	case ErrSearchFailed.Code():
+		return http.StatusInternalServerError
+	case ErrTrashNotFound.Code():
+		return http.StatusNotFound
+	case ErrTrashRestoreConflict.Code():
+		return http.StatusConflict
+	case ErrTrashOperationFailed.Code():
 		return http.StatusInternalServerError
 	case UnauthorizedAuthNotExist.Code():
 		fallthrough
