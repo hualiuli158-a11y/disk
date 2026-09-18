@@ -43,7 +43,7 @@ func TestProfileHandler(t *testing.T) {
 			name:   "success",
 			userID: uint64(42),
 			finder: &handlerProfileUserFinder{user: &model.User{
-				ID: 42, Username: "alice", CreateTime: createdAt, UsedQuota: 1048576,
+				ID: 42, Username: "alice", CreateTime: createdAt, UsedQuota: 1048576, QuotaLimit: 10737418240,
 			}},
 			wantStatus: http.StatusOK,
 		},
@@ -113,7 +113,7 @@ func TestProfileHandler(t *testing.T) {
 			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("decode profile response: %v", err)
 			}
-			if payload.ID != 42 || payload.Username != "alice" || payload.UsedQuota != 1048576 || !payload.CreateTime.Equal(createdAt) {
+			if payload.ID != 42 || payload.Username != "alice" || payload.UsedQuota != 1048576 || payload.QuotaLimit != 10737418240 || !payload.CreateTime.Equal(createdAt) {
 				t.Fatalf("unexpected profile response: %+v", payload)
 			}
 		})

@@ -23,6 +23,7 @@ type ProfileOutput struct {
 	Username   string
 	CreateTime time.Time
 	UsedQuota  int64
+	QuotaLimit int64
 }
 
 func NewProfileService(users ProfileUserFinder) *ProfileService {
@@ -42,5 +43,6 @@ func (s *ProfileService) Profile(ctx context.Context, userID uint64) (*ProfileOu
 		Username:   user.Username,
 		CreateTime: user.CreateTime,
 		UsedQuota:  user.UsedQuota,
+		QuotaLimit: user.QuotaLimit,
 	}, nil
 }

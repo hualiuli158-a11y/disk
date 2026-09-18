@@ -49,6 +49,7 @@ type UploadFileResponse struct {
 // @Failure 404 {object} app.ErrorResponse "目标目录不存在或无权访问"
 // @Failure 409 {object} app.ErrorResponse "目标目录下已存在同名文件"
 // @Failure 413 {object} app.ErrorResponse "文件超过上传大小限制"
+// @Failure 507 {object} app.ErrorResponse "存储额度不足"
 // @Failure 500 {object} app.ErrorResponse "上传文件失败"
 // @Router /api/files [post]
 func (h *UploadFileHandler) UploadFile(c *gin.Context) {
@@ -104,6 +105,9 @@ func (h *UploadFileHandler) UploadFile(c *gin.Context) {
 		return
 	case errors.Is(err, service.ErrFileTooLarge):
 		app.NewResponse(c).ToErrorResponse(errcode.ErrFileTooLarge)
+		return
+	case errors.Is(err, service.ErrQuotaExceeded):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrQuotaExceeded)
 		return
 	case err != nil:
 		h.baselogger.WithContext(c.Request.Context()).Errorf("upload file failed: %v", err)

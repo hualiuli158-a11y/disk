@@ -191,12 +191,27 @@ definitions:
       id:
         example: 42
         type: integer
+      quota_limit:
+        example: 10737418240
+        type: integer
       used_quota:
         example: 1048576
         type: integer
       username:
         example: alice
         type: string
+    type: object
+  handler.QuotaResponse:
+    properties:
+      limit:
+        example: 10737418240
+        type: integer
+      remaining:
+        example: 10736369664
+        type: integer
+      used:
+        example: 1048576
+        type: integer
     type: object
   handler.RegisterRequest:
     properties:
@@ -319,6 +334,10 @@ paths:
             $ref: '#/definitions/app.ErrorResponse'
         "500":
           description: 上传文件失败
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "507":
+          description: 存储额度不足
           schema:
             $ref: '#/definitions/app.ErrorResponse'
       security:
@@ -854,6 +873,33 @@ paths:
       summary: 获取用户基本信息
       tags:
       - 认证
+  /api/quota:
+    get:
+      description: 返回当前用户的已用、总量和剩余额度。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            $ref: '#/definitions/handler.QuotaResponse'
+        "401":
+          description: 未提供有效的身份凭证
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+        "500":
+          description: 服务内部错误
+          schema:
+            $ref: '#/definitions/app.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取存储额度
+      tags:
+      - 用户
   /login:
     post:
       consumes:

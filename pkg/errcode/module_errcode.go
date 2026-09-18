@@ -21,6 +21,7 @@ var (
 	ErrDeleteFileFailed     = NewError(40009, "删除文件失败")
 	ErrRenameFileFailed     = NewError(40010, "重命名文件失败")
 	ErrMoveFileFailed       = NewError(40011, "移动文件失败")
+	ErrQuotaExceeded        = NewError(40012, "存储额度不足")
 )
 
 var (

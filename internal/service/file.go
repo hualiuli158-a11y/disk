@@ -25,6 +25,7 @@ var (
 	ErrFileTooLarge         = errors.New("文件超过上传大小限制")
 	ErrFileFolderNotFound   = errors.New("目录不存在")
 	ErrFileNotFound         = errors.New("文件不存在")
+	ErrQuotaExceeded        = errors.New("存储额度不足")
 )
 
 type UploadFileService struct {
@@ -106,6 +107,8 @@ func (s *UploadFileService) UploadFile(ctx context.Context, input UploadFileInpu
 			return nil, ErrUploadFolderNotFound
 		case errors.Is(err, repository.ErrFileAlreadyExists):
 			return nil, ErrFileAlreadyExists
+		case errors.Is(err, repository.ErrQuotaExceeded):
+			return nil, ErrQuotaExceeded
 		default:
 			return nil, err
 		}

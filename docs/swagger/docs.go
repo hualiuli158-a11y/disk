@@ -91,6 +91,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/app.ErrorResponse"
                         }
+                    },
+                    "507": {
+                        "description": "存储额度不足",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -919,6 +925,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/quota": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "返回当前用户的已用、总量和剩余额度。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户"
+                ],
+                "summary": "获取存储额度",
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.QuotaResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "使用用户名和密码完成身份认证，成功后返回访问令牌。用户名不存在和密码错误统一返回“用户名或密码错误”。",
@@ -1309,6 +1358,10 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 42
                 },
+                "quota_limit": {
+                    "type": "integer",
+                    "example": 10737418240
+                },
                 "used_quota": {
                     "type": "integer",
                     "example": 1048576
@@ -1316,6 +1369,23 @@ const docTemplate = `{
                 "username": {
                     "type": "string",
                     "example": "alice"
+                }
+            }
+        },
+        "handler.QuotaResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 10737418240
+                },
+                "remaining": {
+                    "type": "integer",
+                    "example": 10736369664
+                },
+                "used": {
+                    "type": "integer",
+                    "example": 1048576
                 }
             }
         },

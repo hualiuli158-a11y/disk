@@ -15,6 +15,7 @@ var (
 	ErrFileFolderNotFound = errors.New("文件夹不存在")
 	ErrFileAlreadyExists  = errors.New("同名文件已存在")
 	ErrFileNotFound       = errors.New("文件不存在")
+	ErrQuotaExceeded      = errors.New("存储额度不足")
 )
 
 type FilesRepository struct {
@@ -44,7 +45,7 @@ func (r *FilesRepository) CreateUploadedFile(
 		var user model.User
 		err := tx.
 			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Select("id").
+			Select("id", "used_quota", "quota_limit").
 			Where("id = ?", userID).
 			First(&user).Error
 		switch {
@@ -52,6 +53,9 @@ func (r *FilesRepository) CreateUploadedFile(
 			return ErrUserNotFound
 		case err != nil:
 			return fmt.Errorf("find user %d for upload: %w", userID, err)
+		}
+		if size < 0 || user.UsedQuota > user.QuotaLimit || size > user.QuotaLimit-user.UsedQuota {
+			return ErrQuotaExceeded
 		}
 
 		var folder model.Folder
@@ -98,10 +102,14 @@ func (r *FilesRepository) CreateUploadedFile(
 			return fmt.Errorf("create logical file: %w", err)
 		}
 
-		if err := tx.Model(&model.User{}).
-			Where("id = ?", userID).
-			UpdateColumn("used_quota", gorm.Expr("used_quota + ?", size)).Error; err != nil {
-			return fmt.Errorf("increase used quota for user %d: %w", userID, err)
+		quotaUpdate := tx.Model(&model.User{}).
+			Where("id = ? AND used_quota + ? <= quota_limit", userID, size).
+			UpdateColumn("used_quota", gorm.Expr("used_quota + ?", size))
+		if quotaUpdate.Error != nil {
+			return fmt.Errorf("increase used quota for user %d: %w", userID, quotaUpdate.Error)
+		}
+		if quotaUpdate.RowsAffected == 0 {
+			return ErrQuotaExceeded
 		}
 
 		return nil

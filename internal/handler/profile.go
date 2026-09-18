@@ -30,6 +30,7 @@ type ProfileResponse struct {
 	Username   string    `json:"username" example:"alice"`
 	CreateTime time.Time `json:"create_time" example:"2026-09-13T10:00:00+08:00"`
 	UsedQuota  int64     `json:"used_quota" example:"1048576"`
+	QuotaLimit int64     `json:"quota_limit" example:"10737418240"`
 }
 
 // Profile 获取用户基本信息
@@ -76,5 +77,6 @@ func (p *ProfileHandler) Profile(c *gin.Context) {
 		Username:   result.Username,
 		CreateTime: result.CreateTime,
 		UsedQuota:  result.UsedQuota,
+		QuotaLimit: result.QuotaLimit,
 	})
 }

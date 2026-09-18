@@ -66,6 +66,7 @@ func New() (*App, error) {
 	loginService := service.NewLoginService(userRepository, jwtService)
 	registerService := service.NewRegisterService(userRepository, jwtService)
 	profileService := service.NewProfileService(userRepository)
+	quotaService := service.NewQuotaService(userRepository)
 	foldersService := service.NewChildFoldersCreateService(foldersRepository)
 	listFoldersService := service.NewListFoldersService(foldersRepository)
 	renameFolderService := service.NewRenameFolderService(foldersRepository)
@@ -84,6 +85,7 @@ func New() (*App, error) {
 		Login:        handler.NewLoginHandler(loginService, baseLogger),
 		Register:     handler.NewRegisterHandler(registerService, baseLogger),
 		Profile:      handler.NewProfileHandler(profileService, baseLogger),
+		Quota:        handler.NewQuotaHandler(quotaService, baseLogger),
 		Folders:      handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
 		ListFolders:  handler.NewListFoldersHandler(listFoldersService, baseLogger),
 		Rename:       handler.NewRenameFolderHandler(renameFolderService, baseLogger),

@@ -313,6 +313,20 @@ func TestUploadFileHandler(t *testing.T) {
 			wantRepoCall:  true,
 			wantDelete:    true,
 		},
+		{
+			name:          "quota exceeded",
+			userID:        uint64(42),
+			folderID:      "7",
+			filename:      "photo.jpg",
+			content:       []byte("hello"),
+			includeFile:   true,
+			repositoryErr: repository.ErrQuotaExceeded,
+			maxUploadSize: 1024,
+			wantStatus:    http.StatusInsufficientStorage,
+			wantCode:      40012,
+			wantRepoCall:  true,
+			wantDelete:    true,
+		},
 	}
 
 	for _, tt := range tests {

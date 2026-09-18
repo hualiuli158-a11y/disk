@@ -16,6 +16,7 @@ type Handlers struct {
 	Login        *handler.LoginHandler
 	Register     *handler.RegisterHandler
 	Profile      *handler.ProfileHandler
+	Quota        *handler.QuotaHandler
 	Folders      *handler.ChildFoldersCreateHandler
 	ListFolders  *handler.ListFoldersHandler
 	Rename       *handler.RenameFolderHandler
@@ -52,6 +53,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 	authorized.Use(middleware.JWT(jwtService))
 	{
 		authorized.GET("/profile", handlers.Profile.Profile)
+		authorized.GET("/quota", handlers.Quota.GetQuota)
 		authorized.POST("/folders", handlers.Folders.CreateChildFolder)
 		authorized.GET("/folders/root/children", handlers.ListFolders.ListFolders)
 		authorized.PATCH("/folders/:id", handlers.Rename.RenameFolder)
