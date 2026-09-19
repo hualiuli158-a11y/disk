@@ -26,10 +26,12 @@ type FoldersRepository struct {
 	db *gorm.DB
 }
 
+// NewFoldersRepository 使用指定数据库连接创建文件夹仓储。
 func NewFoldersRepository(db *gorm.DB) *FoldersRepository {
 	return &FoldersRepository{db: db}
 }
 
+// CreateChildFolder 在当前用户的指定父目录下创建子目录。
 func (r *FoldersRepository) CreateChildFolder(ctx context.Context, userID uint64, parentID uint64, name string) (*model.Folder, error) {
 	var child model.Folder
 
@@ -103,6 +105,7 @@ func (r *FoldersRepository) ListRootChildren(ctx context.Context, userID uint64)
 	return &root, nil
 }
 
+// RenameFolder 重命名当前用户拥有的非根目录。
 func (r *FoldersRepository) RenameFolder(ctx context.Context, userID uint64, folderID uint64, name string) error {
 	result := r.db.WithContext(ctx).
 		Model(&model.Folder{}).

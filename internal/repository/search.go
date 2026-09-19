@@ -13,10 +13,12 @@ type SearchRepository struct {
 	db *gorm.DB
 }
 
+// NewSearchRepository 使用指定数据库连接创建搜索仓储。
 func NewSearchRepository(db *gorm.DB) *SearchRepository {
 	return &SearchRepository{db: db}
 }
 
+// Search 按名称关键字和资源类型分页搜索当前用户的文件夹与文件，并返回结果总数。
 func (r *SearchRepository) Search(
 	ctx context.Context,
 	userID uint64,

@@ -23,10 +23,12 @@ type TrashRepository struct {
 	db *gorm.DB
 }
 
+// NewTrashRepository 使用指定数据库连接创建回收站仓储。
 func NewTrashRepository(db *gorm.DB) *TrashRepository {
 	return &TrashRepository{db: db}
 }
 
+// TrashFile 为文件创建回收站条目，并将逻辑文件标记为已删除。
 func (r *TrashRepository) TrashFile(ctx context.Context, userID uint64, fileID uint64, trashedAt time.Time, expiresAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockTrashUser(tx, userID); err != nil {
@@ -65,6 +67,7 @@ func (r *TrashRepository) TrashFile(ctx context.Context, userID uint64, fileID u
 	})
 }
 
+// TrashFolder 为文件夹创建回收站条目，并递归标记目录树及其中的文件为已删除。
 func (r *TrashRepository) TrashFolder(ctx context.Context, userID uint64, folderID uint64, trashedAt time.Time, expiresAt time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockTrashUser(tx, userID); err != nil {
@@ -125,6 +128,7 @@ func (r *TrashRepository) TrashFolder(ctx context.Context, userID uint64, folder
 	})
 }
 
+// ListTrash 分页查询当前用户的回收站条目，并返回条目总数。
 func (r *TrashRepository) ListTrash(ctx context.Context, userID uint64, offset int, limit int) ([]model.TrashEntry, int64, error) {
 	var total int64
 	if err := r.db.WithContext(ctx).Model(&model.TrashEntry{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
@@ -141,6 +145,7 @@ func (r *TrashRepository) ListTrash(ctx context.Context, userID uint64, offset i
 	return entries, total, nil
 }
 
+// ListExpiredTrashEntries 按过期时间查询待清理的回收站条目。
 func (r *TrashRepository) ListExpiredTrashEntries(ctx context.Context, now time.Time, limit int) ([]model.TrashEntry, error) {
 	entries := make([]model.TrashEntry, 0)
 	if err := r.db.WithContext(ctx).
@@ -152,6 +157,7 @@ func (r *TrashRepository) ListExpiredTrashEntries(ctx context.Context, now time.
 	return entries, nil
 }
 
+// RestoreTrash 将回收站中的文件或文件夹恢复到原目录；原目录不存在时恢复到根目录。
 func (r *TrashRepository) RestoreTrash(ctx context.Context, userID uint64, trashID uint64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := lockTrashUser(tx, userID); err != nil {
@@ -226,6 +232,7 @@ func (r *TrashRepository) RestoreTrash(ctx context.Context, userID uint64, trash
 	})
 }
 
+// PermanentlyDeleteTrash 永久删除回收站资源，并返回不再被引用、需要从对象存储删除的存储键。
 func (r *TrashRepository) PermanentlyDeleteTrash(ctx context.Context, userID uint64, trashID uint64) ([]string, error) {
 	storageKeys := make([]string, 0)
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -305,6 +312,7 @@ type folderTreeNode struct {
 	Depth int
 }
 
+// activeFolderTreeIDs 查询以指定目录为根的未删除目录树 ID。
 func activeFolderTreeIDs(tx *gorm.DB, userID uint64, rootID uint64) ([]uint64, error) {
 	var ids []uint64
 	query := `WITH RECURSIVE tree AS (
@@ -319,6 +327,7 @@ func activeFolderTreeIDs(tx *gorm.DB, userID uint64, rootID uint64) ([]uint64, e
 	return ids, nil
 }
 
+// allFolderTreeNodes 查询完整目录树的节点及深度，包含已软删除的目录。
 func allFolderTreeNodes(tx *gorm.DB, userID uint64, rootID uint64) ([]folderTreeNode, error) {
 	nodes := make([]folderTreeNode, 0)
 	query := `WITH RECURSIVE tree AS (
@@ -336,6 +345,7 @@ func allFolderTreeNodes(tx *gorm.DB, userID uint64, rootID uint64) ([]folderTree
 	return nodes, nil
 }
 
+// lockTrashUser 锁定用户记录，使同一用户的回收站写操作串行执行。
 func lockTrashUser(tx *gorm.DB, userID uint64) error {
 	var user model.User
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id = ?", userID).First(&user).Error
@@ -348,6 +358,7 @@ func lockTrashUser(tx *gorm.DB, userID uint64) error {
 	return nil
 }
 
+// findTrashEntryForUpdate 查询并锁定当前用户的指定回收站条目。
 func findTrashEntryForUpdate(tx *gorm.DB, userID uint64, trashID uint64) (*model.TrashEntry, error) {
 	var entry model.TrashEntry
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND user_id = ?", trashID, userID).First(&entry).Error
@@ -360,6 +371,7 @@ func findTrashEntryForUpdate(tx *gorm.DB, userID uint64, trashID uint64) (*model
 	return &entry, nil
 }
 
+// restoreTargetFolderID 确定资源恢复目录，原父目录不存在时回退到用户根目录。
 func restoreTargetFolderID(tx *gorm.DB, userID uint64, originalParentID *uint64) (uint64, error) {
 	if originalParentID != nil {
 		var folder model.Folder
@@ -376,6 +388,7 @@ func restoreTargetFolderID(tx *gorm.DB, userID uint64, originalParentID *uint64)
 	return root.ID, nil
 }
 
+// activeFileNameExists 判断目标目录中是否存在同名的未删除文件。
 func activeFileNameExists(tx *gorm.DB, userID uint64, folderID uint64, name string) (bool, error) {
 	var count int64
 	if err := tx.Model(&model.File{}).Where("user_id = ? AND folder_id = ? AND name = ?", userID, folderID, name).Count(&count).Error; err != nil {
@@ -384,6 +397,7 @@ func activeFileNameExists(tx *gorm.DB, userID uint64, folderID uint64, name stri
 	return count > 0, nil
 }
 
+// activeFolderNameExists 判断目标目录中是否存在同名的未删除文件夹。
 func activeFolderNameExists(tx *gorm.DB, userID uint64, parentID uint64, name string) (bool, error) {
 	var count int64
 	if err := tx.Model(&model.Folder{}).Where("user_id = ? AND parent_id = ? AND name = ?", userID, parentID, name).Count(&count).Error; err != nil {
@@ -392,6 +406,8 @@ func activeFolderNameExists(tx *gorm.DB, userID uint64, parentID uint64, name st
 	return count > 0, nil
 }
 
+// permanentlyDeleteFiles 永久删除逻辑文件、回收用户额度，并清理无引用的物理文件记录。
+// 返回值为需要由上层从对象存储中删除的存储键。
 func permanentlyDeleteFiles(tx *gorm.DB, userID uint64, files []model.File) ([]string, error) {
 	if len(files) == 0 {
 		return nil, nil

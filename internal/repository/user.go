@@ -23,11 +23,12 @@ type UserRepository struct {
 	db *gorm.DB
 }
 
+// NewUserRepository 使用指定数据库连接创建用户仓储。
 func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// 通过名称查询查询用户
+// FindByUsername 根据用户名查询用户，不存在时返回 ErrUserNotFound。
 func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 
@@ -56,7 +57,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id uint64) (*model.User, 
 	return &user, nil
 }
 
-// 创建用户,创建用户并为用户创建根目录
+// CreateRoot 在同一事务中创建用户及其根目录。
 func (r *UserRepository) CreateRoot(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// username 的唯一索引负责处理并发注册。

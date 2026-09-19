@@ -16,10 +16,12 @@ type CleanupRepository struct {
 	db *gorm.DB
 }
 
+// NewCleanupRepository 使用指定数据库连接创建物理文件清理仓储。
 func NewCleanupRepository(db *gorm.DB) *CleanupRepository {
 	return &CleanupRepository{db: db}
 }
 
+// ListUnreferencedPhysicalFiles 查询创建时间早于指定阈值且未被逻辑文件引用的物理文件。
 func (r *CleanupRepository) ListUnreferencedPhysicalFiles(ctx context.Context, olderThan time.Time, limit int) ([]model.PhysicalFile, error) {
 	files := make([]model.PhysicalFile, 0)
 	err := r.db.WithContext(ctx).
@@ -34,6 +36,8 @@ func (r *CleanupRepository) ListUnreferencedPhysicalFiles(ctx context.Context, o
 	return files, nil
 }
 
+// DeletePhysicalFileIfUnreferenced 在事务中再次确认物理文件无引用后删除其记录。
+// 返回存储键、是否实际删除以及执行过程中产生的错误。
 func (r *CleanupRepository) DeletePhysicalFileIfUnreferenced(ctx context.Context, physicalID uint64) (string, bool, error) {
 	var storageKey string
 	deleted := false
@@ -69,6 +73,7 @@ func (r *CleanupRepository) DeletePhysicalFileIfUnreferenced(ctx context.Context
 	return storageKey, deleted, err
 }
 
+// PhysicalStorageKeyExists 判断指定存储键是否仍被物理文件记录使用。
 func (r *CleanupRepository) PhysicalStorageKeyExists(ctx context.Context, storageKey string) (bool, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).

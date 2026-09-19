@@ -22,6 +22,7 @@ type FilesRepository struct {
 	db *gorm.DB
 }
 
+// NewFilesRepository 使用指定数据库连接创建文件仓储。
 func NewFilesRepository(db *gorm.DB) *FilesRepository {
 	return &FilesRepository{db: db}
 }
