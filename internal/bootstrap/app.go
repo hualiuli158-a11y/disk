@@ -64,7 +64,16 @@ func New() (*App, error) {
 	searchRepository := repository.NewSearchRepository(db)
 	cleanupRepository := repository.NewCleanupRepository(db)
 	trashRepository := repository.NewTrashRepository(db)
-	objectStorage, err := storage.NewStorage(config.Storage.Root)
+	var objectStorage storage.Storage
+	switch config.Storage.Backend {
+	case "local":
+		objectStorage, err = storage.NewStorage(config.Storage.Root)
+	case "remote":
+		objectStorage, err = storage.NewRemoteStorage(
+			config.Storage.RemoteAddress, config.Storage.RemoteTimeout)
+	default:
+		return nil, fmt.Errorf("unsupported storage backend %q", config.Storage.Backend)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"disk/internal/repository"
+	"disk/internal/storage"
 )
 
 const DefaultMaxUploadSize int64 = 1 << 30 // 1 GiB
@@ -81,6 +82,9 @@ func (s *UploadFileService) UploadFile(ctx context.Context, input UploadFileInpu
 	limited := &io.LimitedReader{R: input.Content, N: s.maxUploadSize + 1}
 	counter := &countingHashReader{reader: limited, hasher: hasher}
 	if err := s.objects.Save(ctx, storageKey, counter); err != nil {
+		if errors.Is(err, storage.ErrTooLarge) {
+			return nil, ErrFileTooLarge
+		}
 		return nil, fmt.Errorf("save upload object: %w", err)
 	}
 	if counter.size > s.maxUploadSize {

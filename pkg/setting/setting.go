@@ -61,11 +61,20 @@ func LoadConfig() (*Config, error) {
 			Expire: jwtExpire,
 		},
 		Storage: StorageConfig{
-			Root: strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
+			Root:          strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
+			Backend:       strings.TrimSpace(os.Getenv("STORAGE_BACKEND")),
+			RemoteAddress: strings.TrimSpace(os.Getenv("STORAGE_REMOTE_ADDRESS")),
 		},
+	}
+	if config.Storage.Backend == "" {
+		config.Storage.Backend = "local"
 	}
 	if config.Storage.Root == "" {
 		config.Storage.Root = "data"
+	}
+	config.Storage.RemoteTimeout, err = optionalPositiveDuration("STORAGE_REMOTE_TIMEOUT", 30*time.Minute)
+	if err != nil {
+		return nil, err
 	}
 	config.Storage.CleanupInterval, err = optionalPositiveDuration("STORAGE_CLEANUP_INTERVAL", 6*time.Hour)
 	if err != nil {
@@ -94,6 +103,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.Port == "" {
 		return fmt.Errorf("PORT must be set")
+	}
+	switch c.Storage.Backend {
+	case "local":
+	case "remote":
+		if c.Storage.RemoteAddress == "" {
+			return fmt.Errorf("STORAGE_REMOTE_ADDRESS must be set for remote storage")
+		}
+	default:
+		return fmt.Errorf("STORAGE_BACKEND must be local or remote")
 	}
 	return nil
 }
@@ -142,6 +160,9 @@ type JwtConfig struct {
 
 type StorageConfig struct {
 	Root            string
+	Backend         string
+	RemoteAddress   string
+	RemoteTimeout   time.Duration
 	CleanupInterval time.Duration
 	OrphanGrace     time.Duration
 	CleanupBatch    int
