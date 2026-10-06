@@ -52,5 +52,5 @@ func getToken(c *gin.Context) string {
 		return token
 	}
 
-	return strings.TrimSpace(c.Query("token"))
+	return ""
 }

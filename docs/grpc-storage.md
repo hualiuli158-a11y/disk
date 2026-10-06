@@ -36,10 +36,35 @@ PowerShell 临时设置环境变量的语法是
 Go 的 MySQL 连接独立于对象存储；如果 MySQL 也在 Linux，需要单独保证
 `DB_HOST` 对 Windows 上的 Go 进程可达。
 
-Go 客户端和 C++ 服务端当前使用未加密的 gRPC 连接，请使用本机、SSH 隧道
-或受信任的私有网络。切换后不会自动迁移原后端的对象数据：数据库保存的
+Go 提供无需登录的 `GET /livez` 和 `GET /readyz`。前者检查 HTTP 进程，后者
+检查 MySQL 和 C++ 节点的标准 gRPC health 服务；依赖不可用时返回 503。
+Go 启动时也会记录存储健康检查失败的原因。部署新版本后需重新编译并重启
+C++ 服务，使 health 服务和分页协议可用。
+
+直接跨主机连接时，C++ 服务必须启用双向 TLS。Go 设置 CA 文件和服务端证书名称：
+
+```dotenv
+STORAGE_TLS_CA=/path/to/ca.pem
+STORAGE_TLS_SERVER_NAME=storage.example.internal
+```
+
+同时设置客户端证书：
+
+```dotenv
+STORAGE_TLS_CLIENT_CERT=/path/to/client.pem
+STORAGE_TLS_CLIENT_KEY=/path/to/client.key
+```
+
+无 TLS 的 Go 连接只接受回环地址，用于本机或 SSH 隧道。`JWT_SECRET` 至少
+需要 32 字节；更换密钥后须重新登录。认证令牌只从
+`Authorization: Bearer <token>` 或兼容用的 `token` 请求头读取，URL 查询
+参数不再接受令牌。
+
+切换后不会自动迁移原后端的对象数据：数据库保存的
 storage key 必须仍能在选定后端找到。上传、下载按 64 KiB 块传输；单对象
-最多 1 GiB。`List` 供孤儿对象清理使用，不代表用户目录列表。
+最多 1 GiB。`List` 供孤儿对象清理使用，不代表用户目录列表。后台清理
+按最多 1000 条分页并记录进程内游标；重启后从头扫描。孤儿清理失败时
+仍会尝试清理过期回收站。
 
 运行 Go 测试：
 
@@ -50,3 +75,6 @@ go test ./...
 真实跨语言测试应使用 C++ 节点的临时存储根目录，并设置
 `STORAGE_TEST_GRPC_ADDRESS=127.0.0.1:50051`，然后运行
 `go test ./internal/storage/grpcstore -run TestCppServerInteroperability -v`。
+也可以在 Linux 上从 gRPC 服务端项目运行
+`bash scripts/test-go-interoperability.sh /absolute/path/to/go-project`，脚本
+会自动构建并启动临时 C++ 节点。

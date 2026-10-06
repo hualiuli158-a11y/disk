@@ -356,6 +356,8 @@ func (*DeleteReply) Descriptor() ([]byte, []int) {
 type ListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Prefix        string                 `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	AfterKey      string                 `protobuf:"bytes,2,opt,name=after_key,json=afterKey,proto3" json:"after_key,omitempty"`
+	Limit         uint32                 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -395,6 +397,20 @@ func (x *ListRequest) GetPrefix() string {
 		return x.Prefix
 	}
 	return ""
+}
+
+func (x *ListRequest) GetAfterKey() string {
+	if x != nil {
+		return x.AfterKey
+	}
+	return ""
+}
+
+func (x *ListRequest) GetLimit() uint32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
 }
 
 type ListReply struct {
@@ -478,9 +494,11 @@ const file_object_storage_proto_rawDesc = "" +
 	"\apayload\"!\n" +
 	"\rDeleteRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\"\r\n" +
-	"\vDeleteReply\"%\n" +
+	"\vDeleteReply\"X\n" +
 	"\vListRequest\x12\x16\n" +
-	"\x06prefix\x18\x01 \x01(\tR\x06prefix\"`\n" +
+	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12\x1b\n" +
+	"\tafter_key\x18\x02 \x01(\tR\bafterKey\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\rR\x05limit\"`\n" +
 	"\tListReply\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x04R\x04size\x12-\n" +

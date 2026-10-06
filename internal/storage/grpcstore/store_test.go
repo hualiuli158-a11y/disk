@@ -3,11 +3,14 @@ package grpcstore
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"errors"
 	"io"
 	"io/fs"
 	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +21,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -27,7 +32,12 @@ type memoryServer struct {
 	mu       sync.Mutex
 	objects  map[string][]byte
 	truncate bool
+	health   *health.Server
 }
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("source read failed") }
 
 func (s *memoryServer) Put(stream grpc.ClientStreamingServer[pb.PutRequest, pb.PutReply]) error {
 	first, err := stream.Recv()
@@ -102,10 +112,18 @@ func (s *memoryServer) List(request *pb.ListRequest, stream grpc.ServerStreaming
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+	sent := uint32(0)
 	for _, key := range keys {
+		if key <= request.AfterKey {
+			continue
+		}
+		if request.Limit > 0 && sent >= request.Limit {
+			break
+		}
 		if err := stream.Send(&pb.ListReply{Key: key, Size: uint64(items[key]), ModifiedAtUnixMs: 123456789}); err != nil {
 			return err
 		}
+		sent++
 	}
 	return nil
 }
@@ -116,6 +134,9 @@ func newTestStore(t *testing.T) (*Store, *memoryServer) {
 	server := grpc.NewServer()
 	backend := &memoryServer{objects: make(map[string][]byte)}
 	pb.RegisterObjectStorageServer(server, backend)
+	backend.health = health.NewServer()
+	backend.health.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(server, backend.health)
 	go func() { _ = server.Serve(listener) }()
 	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
@@ -129,6 +150,9 @@ func newTestStore(t *testing.T) (*Store, *memoryServer) {
 
 func TestStreamedLifecycle(t *testing.T) {
 	store, _ := newTestStore(t)
+	if err := store.Check(context.Background()); err != nil {
+		t.Fatalf("healthy node rejected: %v", err)
+	}
 	data := bytes.Repeat([]byte{0, 1, 2, 255}, 50000)
 	for _, item := range []struct {
 		key   string
@@ -158,6 +182,14 @@ func TestStreamedLifecycle(t *testing.T) {
 		objects[1].ModifiedAt.IsZero() {
 		t.Fatalf("invalid gRPC listing: %+v", objects)
 	}
+	firstPage, err := store.ListPage(context.Background(), "objects", "", 1)
+	if err != nil || len(firstPage) != 1 || firstPage[0].Key != "objects/empty" {
+		t.Fatalf("first gRPC page=%+v err=%v", firstPage, err)
+	}
+	secondPage, err := store.ListPage(context.Background(), "objects", firstPage[0].Key, 1)
+	if err != nil || len(secondPage) != 1 || secondPage[0].Key != "objects/full" {
+		t.Fatalf("second gRPC page=%+v err=%v", secondPage, err)
+	}
 	if err := store.Delete(context.Background(), "objects/full"); err != nil {
 		t.Fatal(err)
 	}
@@ -166,6 +198,23 @@ func TestStreamedLifecycle(t *testing.T) {
 	}
 	if _, err := store.Open(context.Background(), "objects/full"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("missing object: %v", err)
+	}
+}
+
+func TestHealthCheckDetectsUnavailableNode(t *testing.T) {
+	store, backend := newTestStore(t)
+	backend.health.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
+	if err := store.Check(context.Background()); err == nil {
+		t.Fatal("unhealthy node reported ready")
+	}
+}
+
+func TestPlaintextRequiresLoopback(t *testing.T) {
+	if _, err := New("192.0.2.10:50051", time.Second); err == nil {
+		t.Fatal("plaintext connection to non-loopback address was accepted")
+	}
+	if _, err := NewWithTLS("192.0.2.10:50051", time.Second, TLSOptions{CAFile: "unused.pem"}); err == nil || !strings.Contains(err.Error(), "client certificate") {
+		t.Fatalf("remote connection without mTLS was accepted: %v", err)
 	}
 }
 
@@ -189,14 +238,73 @@ func TestGetDetectsTruncatedObject(t *testing.T) {
 // Run against a grpc_storage_node started with a disposable storage root.
 func TestCppServerInteroperability(t *testing.T) {
 	address := os.Getenv("STORAGE_TEST_GRPC_ADDRESS")
-	if address == "" {
-		t.Skip("set STORAGE_TEST_GRPC_ADDRESS to a disposable C++ server")
+	tlsOptions := TLSOptions{
+		CAFile:         os.Getenv("STORAGE_TEST_GRPC_TLS_CA"),
+		ServerName:     os.Getenv("STORAGE_TEST_GRPC_TLS_SERVER_NAME"),
+		ClientCertFile: os.Getenv("STORAGE_TEST_GRPC_TLS_CLIENT_CERT"),
+		ClientKeyFile:  os.Getenv("STORAGE_TEST_GRPC_TLS_CLIENT_KEY"),
 	}
-	store, err := New(address, 10*time.Second)
+	if binary := os.Getenv("STORAGE_TEST_GRPC_BINARY"); binary != "" {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		address = listener.Addr().String()
+		_ = listener.Close()
+		args := []string{address, t.TempDir()}
+		if os.Getenv("STORAGE_TEST_GRPC_TLS") == "1" {
+			ca, caKey, caPEM, _ := testCertificate(t, nil, nil, 11, true, x509.ExtKeyUsageAny)
+			_, _, serverPEM, serverKey := testCertificate(t, ca, caKey, 12, false, x509.ExtKeyUsageServerAuth)
+			_, _, clientPEM, clientKey := testCertificate(t, ca, caKey, 13, false, x509.ExtKeyUsageClientAuth)
+			certDir := t.TempDir()
+			write := func(name string, contents []byte) string {
+				path := filepath.Join(certDir, name)
+				if err := os.WriteFile(path, contents, 0600); err != nil {
+					t.Fatal(err)
+				}
+				return path
+			}
+			caPath := write("ca.pem", caPEM)
+			args = append(args, write("server.pem", serverPEM), write("server.key", serverKey), caPath)
+			tlsOptions = TLSOptions{CAFile: caPath, ServerName: "localhost",
+				ClientCertFile: write("client.pem", clientPEM), ClientKeyFile: write("client.key", clientKey)}
+		}
+		command := exec.Command(binary, args...)
+		command.Stdout, command.Stderr = os.Stdout, os.Stderr
+		if err := command.Start(); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			_ = command.Process.Signal(os.Interrupt)
+			finished := make(chan struct{})
+			go func() { _ = command.Wait(); close(finished) }()
+			select {
+			case <-finished:
+			case <-time.After(5 * time.Second):
+				_ = command.Process.Kill()
+				<-finished
+			}
+		})
+	}
+	if address == "" {
+		t.Skip("set STORAGE_TEST_GRPC_BINARY or STORAGE_TEST_GRPC_ADDRESS")
+	}
+	store, err := NewWithTLS(address, 10*time.Second, tlsOptions)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer store.Close()
+	var healthErr error
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
+		healthErr = store.Check(context.Background())
+		if healthErr == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if healthErr != nil {
+		t.Fatalf("C++ health check failed: %v", healthErr)
+	}
 	key := "objects/integration-" + time.Now().UTC().Format("20060102150405.000000000")
 	data := bytes.Repeat([]byte{0, 1, 255, 42}, 40000)
 	if err := store.Save(context.Background(), key, bytes.NewReader(data)); err != nil {
@@ -225,10 +333,40 @@ func TestCppServerInteroperability(t *testing.T) {
 	if !found {
 		t.Fatalf("C++ listing omitted uploaded key %q", key)
 	}
+	page, err := store.ListPage(context.Background(), "objects", "", 1)
+	if err != nil || len(page) != 1 || page[0].Key != key {
+		t.Fatalf("C++ first page=%+v err=%v", page, err)
+	}
+	nextPage, err := store.ListPage(context.Background(), "objects", key, 1)
+	if err != nil || len(nextPage) != 0 {
+		t.Fatalf("C++ last page=%+v err=%v", nextPage, err)
+	}
 	if err := store.Delete(context.Background(), key); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Open(context.Background(), key); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("C++ missing object: %v", err)
+	}
+	emptyKey := key + "-empty"
+	if err := store.Save(context.Background(), emptyKey, bytes.NewReader(nil)); err != nil {
+		t.Fatalf("C++ empty upload: %v", err)
+	}
+	defer store.Delete(context.Background(), emptyKey)
+	emptyReader, err := store.Open(context.Background(), emptyKey)
+	if err != nil {
+		t.Fatalf("C++ empty download: %v", err)
+	}
+	emptyData, err := io.ReadAll(emptyReader)
+	_ = emptyReader.Close()
+	if err != nil || len(emptyData) != 0 {
+		t.Fatalf("C++ empty object: %d bytes, %v", len(emptyData), err)
+	}
+	interruptedKey := key + "-interrupted"
+	if err := store.Save(context.Background(), interruptedKey,
+		io.MultiReader(bytes.NewReader([]byte("partial")), failingReader{})); err == nil {
+		t.Fatal("interrupted C++ upload unexpectedly succeeded")
+	}
+	if _, err := store.Open(context.Background(), interruptedKey); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("interrupted C++ upload became visible: %v", err)
 	}
 }

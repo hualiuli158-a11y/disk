@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 	"testing"
 	"time"
 
@@ -35,6 +36,25 @@ func (f *cleanupRepositoryFake) PhysicalStorageKeyExists(_ context.Context, key 
 type cleanupStorageFake struct {
 	objects []storage.ObjectInfo
 	deleted []string
+}
+
+type cleanupPagedStorageFake struct {
+	*cleanupStorageFake
+	after []string
+}
+
+func (f *cleanupPagedStorageFake) ListPage(_ context.Context, _ string, afterKey string, limit int) ([]storage.ObjectInfo, error) {
+	f.after = append(f.after, afterKey)
+	page := make([]storage.ObjectInfo, 0, limit)
+	for _, object := range f.objects {
+		if object.Key > afterKey {
+			page = append(page, object)
+			if len(page) == limit {
+				break
+			}
+		}
+	}
+	return page, nil
 }
 
 func (f *cleanupStorageFake) Save(context.Context, string, io.Reader) error { return nil }
@@ -93,5 +113,55 @@ func TestOrphanCleanupReturnsListError(t *testing.T) {
 	_, err := cleanup.Run(context.Background())
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("cleanup error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestOrphanCleanupAdvancesAcrossPages(t *testing.T) {
+	now := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
+	repository := &cleanupRepositoryFake{existing: map[string]bool{
+		"objects/aa/first": true, "objects/bb/second": true, "objects/cc/third": true,
+	}}
+	objects := &cleanupPagedStorageFake{cleanupStorageFake: &cleanupStorageFake{objects: []storage.ObjectInfo{
+		{Key: "objects/aa/first", ModifiedAt: now.Add(-48 * time.Hour)},
+		{Key: "objects/bb/second", ModifiedAt: now.Add(-48 * time.Hour)},
+		{Key: "objects/cc/third", ModifiedAt: now.Add(-48 * time.Hour)},
+	}}}
+	cleanup := NewOrphanCleanupService(repository, objects, 24*time.Hour, 1)
+	cleanup.now = func() time.Time { return now }
+	for i := 0; i < 3; i++ {
+		result, err := cleanup.Run(context.Background())
+		if err != nil || result.StorageScanned != 1 {
+			t.Fatalf("run %d: %+v %v", i, result, err)
+		}
+	}
+	want := []string{"", "objects/aa/first", "objects/bb/second"}
+	if !reflect.DeepEqual(objects.after, want) {
+		t.Fatalf("page cursors=%v, want %v", objects.after, want)
+	}
+	end, err := cleanup.Run(context.Background())
+	if err != nil || end.StorageScanned != 0 {
+		t.Fatalf("end of scan: %+v %v", end, err)
+	}
+	restarted, err := cleanup.Run(context.Background())
+	if err != nil || restarted.StorageScanned != 1 || objects.after[len(objects.after)-1] != "" {
+		t.Fatalf("scan did not wrap: %+v %v cursors=%v", restarted, err, objects.after)
+	}
+}
+
+func TestOrphanCleanupAdvancesPastRecentObjects(t *testing.T) {
+	now := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
+	objects := &cleanupPagedStorageFake{cleanupStorageFake: &cleanupStorageFake{objects: []storage.ObjectInfo{
+		{Key: "objects/aa/recent", ModifiedAt: now.Add(-time.Hour)},
+		{Key: "objects/bb/older", ModifiedAt: now.Add(-48 * time.Hour)},
+	}}}
+	cleanup := NewOrphanCleanupService(&cleanupRepositoryFake{existing: map[string]bool{"objects/bb/older": true}}, objects, 24*time.Hour, 1)
+	cleanup.now = func() time.Time { return now }
+	first, err := cleanup.Run(context.Background())
+	if err != nil || first.StorageScanned != 0 {
+		t.Fatalf("recent first page: %+v %v", first, err)
+	}
+	second, err := cleanup.Run(context.Background())
+	if err != nil || second.StorageScanned != 1 {
+		t.Fatalf("older second page: %+v %v", second, err)
 	}
 }

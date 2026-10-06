@@ -61,9 +61,13 @@ func LoadConfig() (*Config, error) {
 			Expire: jwtExpire,
 		},
 		Storage: StorageConfig{
-			Root:        strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
-			Backend:     strings.ToLower(strings.TrimSpace(os.Getenv("STORAGE_BACKEND"))),
-			GRPCAddress: strings.TrimSpace(os.Getenv("STORAGE_ADDRESS")),
+			Root:              strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
+			Backend:           strings.ToLower(strings.TrimSpace(os.Getenv("STORAGE_BACKEND"))),
+			GRPCAddress:       strings.TrimSpace(os.Getenv("STORAGE_ADDRESS")),
+			TLSCAFile:         strings.TrimSpace(os.Getenv("STORAGE_TLS_CA")),
+			TLSServerName:     strings.TrimSpace(os.Getenv("STORAGE_TLS_SERVER_NAME")),
+			TLSClientCertFile: strings.TrimSpace(os.Getenv("STORAGE_TLS_CLIENT_CERT")),
+			TLSClientKeyFile:  strings.TrimSpace(os.Getenv("STORAGE_TLS_CLIENT_KEY")),
 		},
 	}
 	if config.Storage.Backend == "" {
@@ -98,6 +102,12 @@ func LoadConfig() (*Config, error) {
 
 // Validate ensures the values required to start the application are present.
 func (c *Config) Validate() error {
+	if len([]byte(c.Jwt.Secret)) < 32 {
+		return fmt.Errorf("JWT_SECRET must contain at least 32 bytes")
+	}
+	if c.Jwt.Issuer == "" {
+		return fmt.Errorf("JWT_ISSUER must be set")
+	}
 	if c.Server.Listen == "" {
 		return fmt.Errorf("LISTEN must be set")
 	}
@@ -109,6 +119,12 @@ func (c *Config) Validate() error {
 	case "grpc":
 		if c.Storage.GRPCAddress == "" {
 			return fmt.Errorf("STORAGE_ADDRESS must be set for gRPC storage")
+		}
+		if (c.Storage.TLSClientCertFile == "") != (c.Storage.TLSClientKeyFile == "") {
+			return fmt.Errorf("STORAGE_TLS_CLIENT_CERT and STORAGE_TLS_CLIENT_KEY must be set together")
+		}
+		if c.Storage.TLSCAFile == "" && (c.Storage.TLSServerName != "" || c.Storage.TLSClientCertFile != "") {
+			return fmt.Errorf("STORAGE_TLS_CA is required when TLS options are set")
 		}
 	default:
 		return fmt.Errorf("STORAGE_BACKEND must be local or grpc")
@@ -159,13 +175,17 @@ type JwtConfig struct {
 }
 
 type StorageConfig struct {
-	Root            string
-	Backend         string
-	GRPCAddress     string
-	GRPCTimeout     time.Duration
-	CleanupInterval time.Duration
-	OrphanGrace     time.Duration
-	CleanupBatch    int
+	Root              string
+	Backend           string
+	GRPCAddress       string
+	GRPCTimeout       time.Duration
+	TLSCAFile         string
+	TLSServerName     string
+	TLSClientCertFile string
+	TLSClientKeyFile  string
+	CleanupInterval   time.Duration
+	OrphanGrace       time.Duration
+	CleanupBatch      int
 }
 
 func optionalPositiveDuration(name string, fallback time.Duration) (time.Duration, error) {

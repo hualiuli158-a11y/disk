@@ -95,3 +95,45 @@ func TestLocalStorageHonorsCancelledContext(t *testing.T) {
 		t.Fatalf("期望 context.Canceled，实际错误: %v", err)
 	}
 }
+
+func TestLocalStoragePagesObjectsInKeyOrder(t *testing.T) {
+	store, err := NewStorage(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pager := store.(Pager)
+	for _, key := range []string{"objects/ff/last", "objects/00/first", "objects/ab/middle"} {
+		if err := store.Save(context.Background(), key, strings.NewReader(key)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := pager.ListPage(context.Background(), "objects", "", 2)
+	if err != nil || len(first) != 2 || first[0].Key != "objects/00/first" || first[1].Key != "objects/ab/middle" {
+		t.Fatalf("first page=%+v err=%v", first, err)
+	}
+	second, err := pager.ListPage(context.Background(), "objects", first[1].Key, 2)
+	if err != nil || len(second) != 1 || second[0].Key != "objects/ff/last" {
+		t.Fatalf("second page=%+v err=%v", second, err)
+	}
+}
+
+func TestLocalStoragePagesFileBeforeNeighborDirectory(t *testing.T) {
+	store, err := NewStorage(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"objects/a/child", "objects/a.txt"} {
+		if err := store.Save(context.Background(), key, strings.NewReader("")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pager := store.(Pager)
+	first, err := pager.ListPage(context.Background(), "objects", "", 1)
+	if err != nil || len(first) != 1 || first[0].Key != "objects/a.txt" {
+		t.Fatalf("first page=%v err=%v", first, err)
+	}
+	second, err := pager.ListPage(context.Background(), "objects", first[0].Key, 1)
+	if err != nil || len(second) != 1 || second[0].Key != "objects/a/child" {
+		t.Fatalf("second page=%v err=%v", second, err)
+	}
+}

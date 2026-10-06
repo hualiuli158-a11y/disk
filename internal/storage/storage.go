@@ -21,6 +21,12 @@ type Storage interface {
 	List(ctx context.Context, prefix string) ([]ObjectInfo, error)
 }
 
+// Pager supports bounded object inventory scans. Pages are ordered by key;
+// afterKey is exclusive and empty for the first page.
+type Pager interface {
+	ListPage(ctx context.Context, prefix, afterKey string, limit int) ([]ObjectInfo, error)
+}
+
 type ObjectInfo struct {
 	Key        string
 	Size       int64
@@ -209,6 +215,92 @@ func (l *local) List(ctx context.Context, prefix string) ([]ObjectInfo, error) {
 	}
 	sort.Slice(objects, func(i, j int) bool { return objects[i].Key < objects[j].Key })
 	return objects, nil
+}
+
+func (l *local) ListPage(ctx context.Context, prefix, afterKey string, limit int) ([]ObjectInfo, error) {
+	if limit < 1 || limit > 1000 {
+		return nil, fmt.Errorf("list page limit must be between 1 and 1000")
+	}
+	if afterKey != "" {
+		if err := validateKey(afterKey); err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(afterKey, prefix+"/") {
+			return nil, fmt.Errorf("list cursor is outside prefix")
+		}
+	}
+	base, err := l.resolveExisting(prefix)
+	if errors.Is(err, os.ErrNotExist) {
+		return []ObjectInfo{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	page := make([]ObjectInfo, 0, limit)
+	var visit func(string) (bool, error)
+	visit = func(directory string) (bool, error) {
+		entries, err := os.ReadDir(directory)
+		if err != nil {
+			return false, err
+		}
+		// A directory sorts as its key plus "/". This preserves global key
+		// order when a file such as a.txt sits beside directory a.
+		sort.Slice(entries, func(i, j int) bool {
+			orderKey := func(entry os.DirEntry) string {
+				key := entry.Name()
+				if entry.IsDir() {
+					key += "/"
+				}
+				return key
+			}
+			return orderKey(entries[i]) < orderKey(entries[j])
+		})
+		for _, entry := range entries {
+			if err := ctx.Err(); err != nil {
+				return false, err
+			}
+			if entry.Type()&os.ModeSymlink != 0 || strings.HasPrefix(entry.Name(), ".upload-") {
+				continue
+			}
+			path := filepath.Join(directory, entry.Name())
+			relative, err := filepath.Rel(l.root, path)
+			if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+				return false, fmt.Errorf("存储对象路径越界: %q", path)
+			}
+			key := filepath.ToSlash(relative)
+			if entry.IsDir() {
+				subtree := key + "/"
+				if afterKey != "" && subtree <= afterKey && !strings.HasPrefix(afterKey, subtree) {
+					continue
+				}
+				done, err := visit(path)
+				if done || err != nil {
+					return done, err
+				}
+				continue
+			}
+			if key <= afterKey {
+				continue
+			}
+			info, err := entry.Info()
+			if err != nil {
+				return false, err
+			}
+			if !info.Mode().IsRegular() {
+				continue
+			}
+			page = append(page, ObjectInfo{Key: key, Size: info.Size(), ModifiedAt: info.ModTime()})
+			if len(page) == limit {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	_, err = visit(base)
+	if err != nil {
+		return nil, fmt.Errorf("枚举存储分页 %q: %w", prefix, err)
+	}
+	return page, nil
 }
 
 // resolve 将存储 key 转换成根目录内的本地路径。

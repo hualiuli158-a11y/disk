@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"disk/internal/database"
@@ -76,6 +78,17 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
 	}
+	baseLogger.Infof("object storage backend configured: %s", config.Storage.Backend)
+	var storageUnavailable atomic.Bool
+	if checker, ok := objectStorage.(interface{ Check(context.Context) error }); ok {
+		checkCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		checkErr := checker.Check(checkCtx)
+		cancel()
+		if checkErr != nil {
+			storageUnavailable.Store(true)
+			baseLogger.Errorf("storage backend %q at %q unavailable at startup: %v", config.Storage.Backend, config.Storage.GRPCAddress, checkErr)
+		}
+	}
 
 	jwtService := app.NewJWTService(config.Jwt)
 	loginService := service.NewLoginService(userRepository, jwtService)
@@ -129,6 +142,32 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create router: %w", err)
 	}
+	httpRouter.GET("/livez", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
+	httpRouter.GET("/readyz", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		checkCtx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		defer cancel()
+		if err := sqlDB.PingContext(checkCtx); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "component": "database"})
+			return
+		}
+		if checker, ok := objectStorage.(interface{ Check(context.Context) error }); ok {
+			if err := checker.Check(checkCtx); err != nil {
+				if !storageUnavailable.Swap(true) {
+					baseLogger.Errorf("storage backend %q became unavailable: %v", config.Storage.Backend, err)
+				}
+				c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "component": "storage"})
+				return
+			}
+			if storageUnavailable.Swap(false) {
+				baseLogger.Infof("storage backend %q is available again", config.Storage.Backend)
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready", "storage_backend": config.Storage.Backend})
+	})
 
 	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
 	cleanupDone := make(chan struct{})
@@ -159,7 +198,10 @@ func newObjectStorage(config setting.StorageConfig) (storage.Storage, io.Closer,
 		objects, err := storage.NewStorage(config.Root)
 		return objects, nil, err
 	case "grpc":
-		objects, err := grpcstore.New(config.GRPCAddress, config.GRPCTimeout)
+		objects, err := grpcstore.NewWithTLS(config.GRPCAddress, config.GRPCTimeout, grpcstore.TLSOptions{
+			CAFile: config.TLSCAFile, ServerName: config.TLSServerName,
+			ClientCertFile: config.TLSClientCertFile, ClientKeyFile: config.TLSClientKeyFile,
+		})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -209,15 +251,18 @@ func runOrphanCleanupWorker(
 			if ctx.Err() == nil {
 				workerLogger.Errorf("orphan cleanup failed: %v", err)
 			}
+		} else {
+			workerLogger.WithFields(logger.Fields{
+				"database_candidates": result.DatabaseCandidates,
+				"database_deleted":    result.DatabaseDeleted,
+				"storage_scanned":     result.StorageScanned,
+				"storage_deleted":     result.StorageDeleted,
+				"failures":            result.Failures,
+			}).Info("orphan cleanup completed")
+		}
+		if ctx.Err() != nil {
 			return
 		}
-		workerLogger.WithFields(logger.Fields{
-			"database_candidates": result.DatabaseCandidates,
-			"database_deleted":    result.DatabaseDeleted,
-			"storage_scanned":     result.StorageScanned,
-			"storage_deleted":     result.StorageDeleted,
-			"failures":            result.Failures,
-		}).Info("orphan cleanup completed")
 
 		trashResult, err := trash.PurgeExpiredTrash(ctx, time.Now(), batch)
 		if err != nil {
