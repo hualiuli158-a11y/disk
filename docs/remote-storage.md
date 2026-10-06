@@ -1,5 +1,7 @@
 # 使用 C++ 对象存储节点
 
+本文描述自定义 TCP（`STORAGE_BACKEND=remote` 或 `tcp`）。gRPC 后端使用独立的 [gRPC 存储说明](grpc-storage.md)；本地后端使用 `STORAGE_BACKEND=local`。
+
 Go 网盘默认仍使用本地文件存储。选择远程模式后，上传、下载、永久删除和孤儿清理通过 `internal/storage/remote_storage.go` 访问独立运行的 C++ `storage_node`。用户、目录、配额、数据库事务和 SHA-256 去重留在 Go 服务中。
 
 先在 Linux 或 WSL 中编译并运行 `objectRestore` 项目的 C++ 节点（以下命令在该项目目录执行）：

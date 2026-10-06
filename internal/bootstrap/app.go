@@ -3,7 +3,9 @@ package bootstrap
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"disk/internal/router"
 	"disk/internal/service"
 	"disk/internal/storage"
+	"disk/internal/storage/grpcstore"
 	"disk/pkg/app"
 	"disk/pkg/logger"
 	"disk/pkg/setting"
@@ -28,6 +31,7 @@ type App struct {
 	sqlDB         *sql.DB
 	cleanupCancel context.CancelFunc
 	cleanupDone   chan struct{}
+	storageCloser io.Closer
 }
 
 // New 加载配置、初始化基础设施并组装所有业务依赖。
@@ -47,9 +51,13 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get sql database: %w", err)
 	}
+	var storageCloser io.Closer
 	cleanup := true
 	defer func() {
 		if cleanup {
+			if storageCloser != nil {
+				_ = storageCloser.Close()
+			}
 			_ = sqlDB.Close()
 		}
 	}()
@@ -64,16 +72,7 @@ func New() (*App, error) {
 	searchRepository := repository.NewSearchRepository(db)
 	cleanupRepository := repository.NewCleanupRepository(db)
 	trashRepository := repository.NewTrashRepository(db)
-	var objectStorage storage.Storage
-	switch config.Storage.Backend {
-	case "local":
-		objectStorage, err = storage.NewStorage(config.Storage.Root)
-	case "remote":
-		objectStorage, err = storage.NewRemoteStorage(
-			config.Storage.RemoteAddress, config.Storage.RemoteTimeout)
-	default:
-		return nil, fmt.Errorf("unsupported storage backend %q", config.Storage.Backend)
-	}
+	objectStorage, storageCloser, err := newObjectStorage(config.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
 	}
@@ -150,7 +149,27 @@ func New() (*App, error) {
 		sqlDB:         sqlDB,
 		cleanupCancel: cleanupCancel,
 		cleanupDone:   cleanupDone,
+		storageCloser: storageCloser,
 	}, nil
+}
+
+func newObjectStorage(config setting.StorageConfig) (storage.Storage, io.Closer, error) {
+	switch config.Backend {
+	case "local":
+		objects, err := storage.NewStorage(config.Root)
+		return objects, nil, err
+	case "remote", "tcp":
+		objects, err := storage.NewRemoteStorage(config.RemoteAddress, config.RemoteTimeout)
+		return objects, nil, err
+	case "grpc":
+		objects, err := grpcstore.New(config.GRPCAddress, config.GRPCTimeout)
+		if err != nil {
+			return nil, nil, err
+		}
+		return objects, objects, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported storage backend %q", config.Backend)
+	}
 }
 
 // Run 启动 HTTP 服务。TODO
@@ -170,10 +189,11 @@ func (a *App) Close() error {
 	if a.cleanupDone != nil {
 		<-a.cleanupDone
 	}
-	if err := a.sqlDB.Close(); err != nil {
-		return fmt.Errorf("close database: %w", err)
+	var storageErr error
+	if a.storageCloser != nil {
+		storageErr = a.storageCloser.Close()
 	}
-	return nil
+	return errors.Join(storageErr, a.sqlDB.Close())
 }
 
 func runOrphanCleanupWorker(

@@ -19,6 +19,8 @@ func storageConfigEnvironment(t *testing.T) {
 	t.Setenv("STORAGE_BACKEND", "")
 	t.Setenv("STORAGE_REMOTE_ADDRESS", "")
 	t.Setenv("STORAGE_REMOTE_TIMEOUT", "")
+	t.Setenv("STORAGE_ADDRESS", "")
+	t.Setenv("STORAGE_TIMEOUT", "")
 }
 
 func TestStorageBackendConfig(t *testing.T) {
@@ -51,6 +53,26 @@ func TestStorageBackendConfig(t *testing.T) {
 		storageConfigEnvironment(t)
 		t.Setenv("STORAGE_BACKEND", "remote")
 		if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "STORAGE_REMOTE_ADDRESS") {
+			t.Fatalf("expected missing address error, got %v", err)
+		}
+	})
+	t.Run("grpc address and timeout", func(t *testing.T) {
+		storageConfigEnvironment(t)
+		t.Setenv("STORAGE_BACKEND", "grpc")
+		t.Setenv("STORAGE_ADDRESS", "127.0.0.1:50051")
+		t.Setenv("STORAGE_TIMEOUT", "2m")
+		config, err := LoadConfig()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if config.Storage.GRPCAddress != "127.0.0.1:50051" || config.Storage.GRPCTimeout != 2*time.Minute {
+			t.Fatalf("gRPC config=%+v", config.Storage)
+		}
+	})
+	t.Run("grpc requires address", func(t *testing.T) {
+		storageConfigEnvironment(t)
+		t.Setenv("STORAGE_BACKEND", "grpc")
+		if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "STORAGE_ADDRESS") {
 			t.Fatalf("expected missing address error, got %v", err)
 		}
 	})
