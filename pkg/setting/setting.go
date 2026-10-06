@@ -61,10 +61,9 @@ func LoadConfig() (*Config, error) {
 			Expire: jwtExpire,
 		},
 		Storage: StorageConfig{
-			Root:          strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
-			Backend:       strings.ToLower(strings.TrimSpace(os.Getenv("STORAGE_BACKEND"))),
-			RemoteAddress: strings.TrimSpace(os.Getenv("STORAGE_REMOTE_ADDRESS")),
-			GRPCAddress:   strings.TrimSpace(os.Getenv("STORAGE_ADDRESS")),
+			Root:        strings.TrimSpace(os.Getenv("STORAGE_ROOT")),
+			Backend:     strings.ToLower(strings.TrimSpace(os.Getenv("STORAGE_BACKEND"))),
+			GRPCAddress: strings.TrimSpace(os.Getenv("STORAGE_ADDRESS")),
 		},
 	}
 	if config.Storage.Backend == "" {
@@ -72,10 +71,6 @@ func LoadConfig() (*Config, error) {
 	}
 	if config.Storage.Root == "" {
 		config.Storage.Root = "data"
-	}
-	config.Storage.RemoteTimeout, err = optionalPositiveDuration("STORAGE_REMOTE_TIMEOUT", 30*time.Minute)
-	if err != nil {
-		return nil, err
 	}
 	config.Storage.GRPCTimeout, err = optionalPositiveDuration("STORAGE_TIMEOUT", 30*time.Minute)
 	if err != nil {
@@ -111,16 +106,12 @@ func (c *Config) Validate() error {
 	}
 	switch c.Storage.Backend {
 	case "local":
-	case "remote", "tcp":
-		if c.Storage.RemoteAddress == "" {
-			return fmt.Errorf("STORAGE_REMOTE_ADDRESS must be set for remote storage")
-		}
 	case "grpc":
 		if c.Storage.GRPCAddress == "" {
 			return fmt.Errorf("STORAGE_ADDRESS must be set for gRPC storage")
 		}
 	default:
-		return fmt.Errorf("STORAGE_BACKEND must be local, tcp, remote or grpc")
+		return fmt.Errorf("STORAGE_BACKEND must be local or grpc")
 	}
 	return nil
 }
@@ -170,8 +161,6 @@ type JwtConfig struct {
 type StorageConfig struct {
 	Root            string
 	Backend         string
-	RemoteAddress   string
-	RemoteTimeout   time.Duration
 	GRPCAddress     string
 	GRPCTimeout     time.Duration
 	CleanupInterval time.Duration

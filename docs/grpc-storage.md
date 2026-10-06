@@ -1,7 +1,7 @@
 # 使用 C++ gRPC 对象存储节点
 
 Go 文件服务通过 `internal/storage.Storage` 使用 `Save`、`Open`、`Delete` 和
-`List`。本地、自定义 TCP 和 gRPC 是三个可选实现；用户权限、目录、数据库元数据、
+`List`。本地和 gRPC 是两个可选实现；用户权限、目录、数据库元数据、
 配额和 SHA-256 去重仍由 Go 负责。gRPC 客户端位于
 `internal/storage/grpcstore`，协议定义和 C++ 服务端位于
 `E:/Clion/grpcService/disk`。C++ 服务端复用 `objectRestore` 的 `LocalStore`。

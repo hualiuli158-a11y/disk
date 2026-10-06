@@ -158,9 +158,6 @@ func newObjectStorage(config setting.StorageConfig) (storage.Storage, io.Closer,
 	case "local":
 		objects, err := storage.NewStorage(config.Root)
 		return objects, nil, err
-	case "remote", "tcp":
-		objects, err := storage.NewRemoteStorage(config.RemoteAddress, config.RemoteTimeout)
-		return objects, nil, err
 	case "grpc":
 		objects, err := grpcstore.New(config.GRPCAddress, config.GRPCTimeout)
 		if err != nil {

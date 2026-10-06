@@ -27,6 +27,8 @@ type ObjectInfo struct {
 	ModifiedAt time.Time
 }
 
+var ErrTooLarge = errors.New("object exceeds storage size limit")
+
 // NewStorage 创建一个本地文件存储。
 // root 是所有文件的存储根目录；目录不存在时会自动创建。
 func NewStorage(root string) (Storage, error) {

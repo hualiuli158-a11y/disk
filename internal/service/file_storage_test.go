@@ -11,18 +11,18 @@ import (
 	"disk/internal/storage"
 )
 
-type rejectedRemoteObject struct{}
+type rejectedStorageObject struct{}
 
-func (rejectedRemoteObject) Save(context.Context, string, io.Reader) error {
+func (rejectedStorageObject) Save(context.Context, string, io.Reader) error {
 	return storage.ErrTooLarge
 }
-func (rejectedRemoteObject) Open(context.Context, string) (io.ReadCloser, error) {
+func (rejectedStorageObject) Open(context.Context, string) (io.ReadCloser, error) {
 	panic("Open must not run during upload")
 }
-func (rejectedRemoteObject) Delete(context.Context, string) error {
+func (rejectedStorageObject) Delete(context.Context, string) error {
 	panic("Delete must not run before Save succeeds")
 }
-func (rejectedRemoteObject) List(context.Context, string) ([]storage.ObjectInfo, error) {
+func (rejectedStorageObject) List(context.Context, string) ([]storage.ObjectInfo, error) {
 	panic("List must not run during upload")
 }
 
@@ -33,12 +33,12 @@ func (rejectedUploadRepository) CreateUploadedFile(context.Context, uint64, uint
 	panic("database must not run after rejected Save")
 }
 
-func TestUploadMapsRemoteTooLarge(t *testing.T) {
-	service := NewUploadFileService(rejectedUploadRepository{}, rejectedRemoteObject{}, DefaultMaxUploadSize)
+func TestUploadMapsStorageTooLarge(t *testing.T) {
+	service := NewUploadFileService(rejectedUploadRepository{}, rejectedStorageObject{}, DefaultMaxUploadSize)
 	_, err := service.UploadFile(context.Background(), UploadFileInput{
 		UserID: 1, FolderID: 1, Name: "file.bin", Content: strings.NewReader("data"),
 	})
 	if !errors.Is(err, ErrFileTooLarge) {
-		t.Fatalf("remote size rejection became %v, want ErrFileTooLarge", err)
+		t.Fatalf("storage size rejection became %v, want ErrFileTooLarge", err)
 	}
 }
