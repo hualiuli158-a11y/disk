@@ -32,6 +32,24 @@ func (noOpStorage) Open(context.Context, string) (io.ReadCloser, error)        {
 func (noOpStorage) Delete(context.Context, string) error                       { return nil }
 func (noOpStorage) List(context.Context, string) ([]storage.ObjectInfo, error) { return nil, nil }
 
+type failedHealthStorage struct {
+	noOpStorage
+	err error
+}
+
+func (s failedHealthStorage) Check(context.Context) error { return s.err }
+
+func TestStartupRejectsUnavailableStorage(t *testing.T) {
+	want := errors.New("storage tunnel unavailable")
+	err := requireStorageReady(failedHealthStorage{err: want}, "grpc", "127.0.0.1:50051")
+	if !errors.Is(err, want) {
+		t.Fatalf("startup error=%v, want wrapped storage failure", err)
+	}
+	if err := requireStorageReady(noOpStorage{}, "local", ""); err != nil {
+		t.Fatalf("local storage rejected: %v", err)
+	}
+}
+
 type observedTrashRepository struct{ called chan struct{} }
 
 func (r observedTrashRepository) ListTrash(context.Context, uint64, int, int) ([]model.TrashEntry, int64, error) {

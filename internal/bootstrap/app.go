@@ -78,17 +78,11 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create object storage: %w", err)
 	}
-	baseLogger.Infof("object storage backend configured: %s", config.Storage.Backend)
-	var storageUnavailable atomic.Bool
-	if checker, ok := objectStorage.(interface{ Check(context.Context) error }); ok {
-		checkCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		checkErr := checker.Check(checkCtx)
-		cancel()
-		if checkErr != nil {
-			storageUnavailable.Store(true)
-			baseLogger.Errorf("storage backend %q at %q unavailable at startup: %v", config.Storage.Backend, config.Storage.GRPCAddress, checkErr)
-		}
+	if err := requireStorageReady(objectStorage, config.Storage.Backend, config.Storage.GRPCAddress); err != nil {
+		return nil, err
 	}
+	baseLogger.Infof("object storage backend ready: %s", config.Storage.Backend)
+	var storageUnavailable atomic.Bool
 
 	jwtService := app.NewJWTService(config.Jwt)
 	loginService := service.NewLoginService(userRepository, jwtService)
@@ -209,6 +203,19 @@ func newObjectStorage(config setting.StorageConfig) (storage.Storage, io.Closer,
 	default:
 		return nil, nil, fmt.Errorf("unsupported storage backend %q", config.Backend)
 	}
+}
+
+func requireStorageReady(objects storage.Storage, backend, address string) error {
+	checker, ok := objects.(interface{ Check(context.Context) error })
+	if !ok {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := checker.Check(ctx); err != nil {
+		return fmt.Errorf("storage backend %q at %q unavailable at startup: %w", backend, address, err)
+	}
+	return nil
 }
 
 // Run 启动 HTTP 服务。TODO
