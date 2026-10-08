@@ -356,6 +356,7 @@ type ContentItem struct {
 	ParentID  *uint64
 	Name      string
 	Size      *int64
+	SHA256    *string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -425,6 +426,7 @@ func (s *FolderContentsService) ListContents(ctx context.Context, input FolderCo
 			ParentID:  item.ParentID,
 			Name:      item.Name,
 			Size:      item.Size,
+			SHA256:    item.SHA256,
 			CreatedAt: item.CreatedAt,
 			UpdatedAt: item.UpdatedAt,
 		})

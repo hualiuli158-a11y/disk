@@ -122,6 +122,16 @@ func (e *Error) StatusCode() int {
 		return http.StatusInsufficientStorage
 	case ErrSearchFailed.Code():
 		return http.StatusInternalServerError
+	case ErrInvalidTextContent.Code():
+		return http.StatusBadRequest
+	case ErrFileVersionConflict.Code():
+		return http.StatusPreconditionFailed
+	case ErrUpdateFileContentFailed.Code():
+		return http.StatusInternalServerError
+	case ErrFileVersionRequired.Code():
+		return http.StatusPreconditionRequired
+	case ErrFileContentTooLarge.Code():
+		return http.StatusRequestEntityTooLarge
 	case ErrTrashNotFound.Code():
 		return http.StatusNotFound
 	case ErrTrashRestoreConflict.Code():

@@ -88,7 +88,7 @@ func (h *SearchHandler) Search(c *gin.Context) {
 	for _, item := range result.Items {
 		items = append(items, ContentItemResponse{
 			ID: item.ID, Type: item.Kind, ParentID: item.ParentID, Name: item.Name,
-			Size: item.Size, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+			Size: item.Size, SHA256: item.SHA256, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 		})
 	}
 	app.NewResponse(c).ToResponse(SearchResponse{

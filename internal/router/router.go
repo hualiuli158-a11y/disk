@@ -13,25 +13,26 @@ import (
 
 // Handlers 集中保存 HTTP 路由需要的业务处理器。
 type Handlers struct {
-	Login        *handler.LoginHandler
-	Register     *handler.RegisterHandler
-	Profile      *handler.ProfileHandler
-	Quota        *handler.QuotaHandler
-	Folders      *handler.ChildFoldersCreateHandler
-	ListFolders  *handler.ListFoldersHandler
-	Rename       *handler.RenameFolderHandler
-	Children     *handler.ListFolderChildrenHandler
-	Delete       *handler.DeleteFolderHandler
-	Move         *handler.MoveFolderHandler
-	Contents     *handler.FolderContentsHandler
-	UploadFile   *handler.UploadFileHandler
-	ListFiles    *handler.ListFilesHandler
-	DownloadFile *handler.DownloadFileHandler
-	DeleteFile   *handler.DeleteFileHandler
-	RenameFile   *handler.RenameFileHandler
-	MoveFile     *handler.MoveFileHandler
-	Search       *handler.SearchHandler
-	Trash        *handler.TrashHandler
+	Login             *handler.LoginHandler
+	Register          *handler.RegisterHandler
+	Profile           *handler.ProfileHandler
+	Quota             *handler.QuotaHandler
+	Folders           *handler.ChildFoldersCreateHandler
+	ListFolders       *handler.ListFoldersHandler
+	Rename            *handler.RenameFolderHandler
+	Children          *handler.ListFolderChildrenHandler
+	Delete            *handler.DeleteFolderHandler
+	Move              *handler.MoveFolderHandler
+	Contents          *handler.FolderContentsHandler
+	UploadFile        *handler.UploadFileHandler
+	ListFiles         *handler.ListFilesHandler
+	DownloadFile      *handler.DownloadFileHandler
+	UpdateFileContent *handler.UpdateFileContentHandler
+	DeleteFile        *handler.DeleteFileHandler
+	RenameFile        *handler.RenameFileHandler
+	MoveFile          *handler.MoveFileHandler
+	Search            *handler.SearchHandler
+	Trash             *handler.TrashHandler
 }
 
 func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers Handlers) (*gin.Engine, error) {
@@ -66,6 +67,7 @@ func NewRouter(baseLogger *logger.Logger, jwtService *app.JWTService, handlers H
 		authorized.POST("/files", handlers.UploadFile.UploadFile)
 		authorized.GET("/folders/:id/files", handlers.ListFiles.ListFiles)
 		authorized.GET("/files/:id/download", handlers.DownloadFile.DownloadFile)
+		authorized.PUT("/files/:id/content", handlers.UpdateFileContent.UpdateFileContent)
 		authorized.DELETE("/files/:id", handlers.DeleteFile.DeleteFile)
 		authorized.PATCH("/files/:id", handlers.RenameFile.RenameFile)
 		authorized.PATCH("/files/:id/move", handlers.MoveFile.MoveFile)

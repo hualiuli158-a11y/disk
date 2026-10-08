@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -17,7 +18,10 @@ import (
 	"disk/internal/storage"
 )
 
-const DefaultMaxUploadSize int64 = 1 << 30 // 1 GiB
+const (
+	DefaultMaxUploadSize       int64 = 1 << 30         // 1 GiB
+	DefaultMaxEditableTextSize int64 = 5 * 1024 * 1024 // 5 MiB
+)
 
 var (
 	ErrInvalidFileName      = errors.New("文件名不合法")
@@ -27,6 +31,10 @@ var (
 	ErrFileFolderNotFound   = errors.New("目录不存在")
 	ErrFileNotFound         = errors.New("文件不存在")
 	ErrQuotaExceeded        = errors.New("存储额度不足")
+	ErrInvalidTextContent   = errors.New("文件内容不是有效的 UTF-8 文本")
+	ErrFileContentTooLarge  = errors.New("文件超过在线编辑大小限制")
+	ErrInvalidFileVersion   = errors.New("文件版本无效")
+	ErrFileVersionConflict  = errors.New("文件已被其他操作修改")
 )
 
 type UploadFileService struct {
@@ -132,6 +140,125 @@ func (s *UploadFileService) UploadFile(ctx context.Context, input UploadFileInpu
 	}, nil
 }
 
+type UpdateFileContentService struct {
+	files       UpdateFileContentRepository
+	objects     ObjectStorage
+	maxTextSize int64
+}
+
+func NewUpdateFileContentService(files UpdateFileContentRepository, objects ObjectStorage, maxTextSize int64) *UpdateFileContentService {
+	if maxTextSize <= 0 {
+		maxTextSize = DefaultMaxEditableTextSize
+	}
+	return &UpdateFileContentService{files: files, objects: objects, maxTextSize: maxTextSize}
+}
+
+type UpdateFileContentInput struct {
+	UserID         uint64
+	FileID         uint64
+	ExpectedSHA256 string
+	Content        io.Reader
+}
+
+type UpdateFileContentOutput struct {
+	ID        uint64
+	Name      string
+	Size      int64
+	SHA256    string
+	UpdatedAt time.Time
+}
+
+func (s *UpdateFileContentService) UpdateFileContent(ctx context.Context, input UpdateFileContentInput) (*UpdateFileContentOutput, error) {
+	if input.UserID == 0 {
+		return nil, ErrFolderUserNotFound
+	}
+	if input.FileID == 0 {
+		return nil, ErrFileNotFound
+	}
+	expectedSHA256, err := normalizeSHA256(input.ExpectedSHA256)
+	if err != nil {
+		return nil, err
+	}
+	if input.Content == nil {
+		return nil, ErrInvalidTextContent
+	}
+
+	content, err := io.ReadAll(io.LimitReader(input.Content, s.maxTextSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read updated file content: %w", err)
+	}
+	if int64(len(content)) > s.maxTextSize {
+		return nil, ErrFileContentTooLarge
+	}
+	if !utf8.Valid(content) {
+		return nil, ErrInvalidTextContent
+	}
+
+	digest := sha256.Sum256(content)
+	sha256Value := hex.EncodeToString(digest[:])
+	storageKey, err := newStorageKey()
+	if err != nil {
+		return nil, fmt.Errorf("generate storage key: %w", err)
+	}
+	if err := s.objects.Save(ctx, storageKey, bytes.NewReader(content)); err != nil {
+		if errors.Is(err, storage.ErrTooLarge) {
+			return nil, ErrFileContentTooLarge
+		}
+		return nil, fmt.Errorf("save updated file object: %w", err)
+	}
+
+	logical, physical, physicalCreated, err := s.files.ReplaceFileContent(
+		ctx,
+		input.UserID,
+		input.FileID,
+		expectedSHA256,
+		sha256Value,
+		int64(len(content)),
+		storageKey,
+	)
+	if err != nil {
+		_ = s.objects.Delete(context.WithoutCancel(ctx), storageKey)
+		switch {
+		case errors.Is(err, repository.ErrUserNotFound):
+			return nil, ErrFolderUserNotFound
+		case errors.Is(err, repository.ErrFileNotFound):
+			return nil, ErrFileNotFound
+		case errors.Is(err, repository.ErrFileVersionConflict):
+			return nil, ErrFileVersionConflict
+		case errors.Is(err, repository.ErrQuotaExceeded):
+			return nil, ErrQuotaExceeded
+		default:
+			return nil, err
+		}
+	}
+	if logical == nil || physical == nil {
+		_ = s.objects.Delete(context.WithoutCancel(ctx), storageKey)
+		return nil, errors.New("updated file metadata is missing")
+	}
+	if !physicalCreated {
+		_ = s.objects.Delete(context.WithoutCancel(ctx), storageKey)
+	}
+
+	return &UpdateFileContentOutput{
+		ID:        logical.ID,
+		Name:      logical.Name,
+		Size:      physical.Size,
+		SHA256:    physical.SHA256,
+		UpdatedAt: logical.UpdatedAt,
+	}, nil
+}
+
+func normalizeSHA256(value string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if len(normalized) != sha256.Size*2 {
+		return "", ErrInvalidFileVersion
+	}
+	if _, err := hex.DecodeString(normalized); err != nil {
+		return "", ErrInvalidFileVersion
+	}
+	return normalized, nil
+}
+
 func normalizeFileName(value string) (string, error) {
 	name := strings.TrimSpace(value)
 	if name == "" ||
@@ -228,9 +355,11 @@ func NewDownloadFileService(files DownloadFileRepository, objects ObjectStorage)
 }
 
 type DownloadFileOutput struct {
-	Name    string
-	Size    int64
-	Content io.ReadCloser
+	Name      string
+	Size      int64
+	SHA256    string
+	UpdatedAt time.Time
+	Content   io.ReadCloser
 }
 
 func (s *DownloadFileService) DownloadFile(ctx context.Context, userID uint64, fileID uint64) (*DownloadFileOutput, error) {
@@ -258,9 +387,11 @@ func (s *DownloadFileService) DownloadFile(ctx context.Context, userID uint64, f
 	}
 
 	return &DownloadFileOutput{
-		Name:    file.Name,
-		Size:    file.PhysicalFile.Size,
-		Content: content,
+		Name:      file.Name,
+		Size:      file.PhysicalFile.Size,
+		SHA256:    file.PhysicalFile.SHA256,
+		UpdatedAt: file.UpdatedAt,
+		Content:   content,
 	}, nil
 }
 

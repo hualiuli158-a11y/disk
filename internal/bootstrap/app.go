@@ -99,6 +99,7 @@ func New() (*App, error) {
 	uploadFileService := service.NewUploadFileService(filesRepository, objectStorage, service.DefaultMaxUploadSize)
 	listFilesService := service.NewListFilesService(filesRepository)
 	downloadFileService := service.NewDownloadFileService(filesRepository, objectStorage)
+	updateFileContentService := service.NewUpdateFileContentService(filesRepository, objectStorage, service.DefaultMaxEditableTextSize)
 	deleteFileService := service.NewDeleteFileService(trashRepository)
 	renameFileService := service.NewRenameFileService(filesRepository)
 	moveFileService := service.NewMoveFileService(filesRepository)
@@ -112,25 +113,26 @@ func New() (*App, error) {
 	)
 
 	handlers := router.Handlers{
-		Login:        handler.NewLoginHandler(loginService, baseLogger),
-		Register:     handler.NewRegisterHandler(registerService, baseLogger),
-		Profile:      handler.NewProfileHandler(profileService, baseLogger),
-		Quota:        handler.NewQuotaHandler(quotaService, baseLogger),
-		Folders:      handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
-		ListFolders:  handler.NewListFoldersHandler(listFoldersService, baseLogger),
-		Rename:       handler.NewRenameFolderHandler(renameFolderService, baseLogger),
-		Children:     handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
-		Delete:       handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
-		Move:         handler.NewMoveFolderHandler(moveFolderService, baseLogger),
-		Contents:     handler.NewFolderContentsHandler(folderContentsService, baseLogger),
-		UploadFile:   handler.NewUploadFileHandler(uploadFileService, baseLogger),
-		ListFiles:    handler.NewListFilesHandler(listFilesService, baseLogger),
-		DownloadFile: handler.NewDownloadFileHandler(downloadFileService, baseLogger),
-		DeleteFile:   handler.NewDeleteFileHandler(deleteFileService, baseLogger),
-		RenameFile:   handler.NewRenameFileHandler(renameFileService, baseLogger),
-		MoveFile:     handler.NewMoveFileHandler(moveFileService, baseLogger),
-		Search:       handler.NewSearchHandler(searchService, baseLogger),
-		Trash:        handler.NewTrashHandler(trashService, baseLogger),
+		Login:             handler.NewLoginHandler(loginService, baseLogger),
+		Register:          handler.NewRegisterHandler(registerService, baseLogger),
+		Profile:           handler.NewProfileHandler(profileService, baseLogger),
+		Quota:             handler.NewQuotaHandler(quotaService, baseLogger),
+		Folders:           handler.NewChildFoldersCreateHandler(foldersService, baseLogger),
+		ListFolders:       handler.NewListFoldersHandler(listFoldersService, baseLogger),
+		Rename:            handler.NewRenameFolderHandler(renameFolderService, baseLogger),
+		Children:          handler.NewListFolderChildrenHandler(listFolderChildrenService, baseLogger),
+		Delete:            handler.NewDeleteFolderHandler(deleteFolderService, baseLogger),
+		Move:              handler.NewMoveFolderHandler(moveFolderService, baseLogger),
+		Contents:          handler.NewFolderContentsHandler(folderContentsService, baseLogger),
+		UploadFile:        handler.NewUploadFileHandler(uploadFileService, baseLogger),
+		ListFiles:         handler.NewListFilesHandler(listFilesService, baseLogger),
+		DownloadFile:      handler.NewDownloadFileHandler(downloadFileService, baseLogger),
+		UpdateFileContent: handler.NewUpdateFileContentHandler(updateFileContentService, baseLogger),
+		DeleteFile:        handler.NewDeleteFileHandler(deleteFileService, baseLogger),
+		RenameFile:        handler.NewRenameFileHandler(renameFileService, baseLogger),
+		MoveFile:          handler.NewMoveFileHandler(moveFileService, baseLogger),
+		Search:            handler.NewSearchHandler(searchService, baseLogger),
+		Trash:             handler.NewTrashHandler(trashService, baseLogger),
 	}
 	httpRouter, err := router.NewRouter(baseLogger, jwtService, handlers)
 	if err != nil {

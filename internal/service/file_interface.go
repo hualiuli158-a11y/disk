@@ -41,6 +41,18 @@ type MoveFileRepository interface {
 	MoveFile(ctx context.Context, userID uint64, fileID uint64, folderID uint64) error
 }
 
+type UpdateFileContentRepository interface {
+	ReplaceFileContent(
+		ctx context.Context,
+		userID uint64,
+		fileID uint64,
+		expectedSHA256 string,
+		sha256Value string,
+		size int64,
+		storageKey string,
+	) (*model.File, *model.PhysicalFile, bool, error)
+}
+
 type ObjectStorage interface {
 	Save(ctx context.Context, key string, reader io.Reader) error
 	Open(ctx context.Context, key string) (io.ReadCloser, error)

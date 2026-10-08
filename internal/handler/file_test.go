@@ -535,6 +535,8 @@ func TestDownloadFileHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	databaseErr := errors.New("database unavailable")
 	storageErr := errors.New("storage unavailable")
+	updatedAt := time.Date(2026, time.October, 8, 14, 0, 0, 0, time.UTC)
+	const contentSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 	tests := []struct {
 		name       string
@@ -550,8 +552,8 @@ func TestDownloadFileHandler(t *testing.T) {
 			userID: uint64(42),
 			fileID: "2",
 			repository: &handlerDownloadFileRepository{file: &model.File{
-				ID: 2, UserID: 42, FolderID: 7, PhysicalFileID: 1, Name: "photo.txt",
-				PhysicalFile: model.PhysicalFile{ID: 1, Size: 5, StorageKey: "objects/aa/value"},
+				ID: 2, UserID: 42, FolderID: 7, PhysicalFileID: 1, Name: "photo.txt", UpdatedAt: updatedAt,
+				PhysicalFile: model.PhysicalFile{ID: 1, Size: 5, SHA256: contentSHA, StorageKey: "objects/aa/value"},
 			}},
 			wantStatus: http.StatusOK,
 		},
@@ -641,6 +643,9 @@ func TestDownloadFileHandler(t *testing.T) {
 			}
 			if !strings.Contains(response.Header().Get("Content-Disposition"), "photo.txt") {
 				t.Fatalf("unexpected content disposition: %q", response.Header().Get("Content-Disposition"))
+			}
+			if response.Header().Get("ETag") != `"`+contentSHA+`"` || response.Header().Get("X-File-SHA256") != contentSHA {
+				t.Fatalf("missing version headers: %+v", response.Header())
 			}
 			if objects.openedKey != "objects/aa/value" || tt.repository.receivedUserID != 42 || tt.repository.receivedFileID != 2 {
 				t.Fatalf("unexpected download inputs: key=%q user=%d file=%d", objects.openedKey, tt.repository.receivedUserID, tt.repository.receivedFileID)

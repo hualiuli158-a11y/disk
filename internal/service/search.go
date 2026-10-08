@@ -96,7 +96,7 @@ func (s *SearchService) Search(ctx context.Context, input SearchInput) (*SearchO
 	for _, item := range results {
 		items = append(items, ContentItem{
 			ID: item.ID, Kind: item.Kind, ParentID: item.ParentID, Name: item.Name,
-			Size: item.Size, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+			Size: item.Size, SHA256: item.SHA256, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
 		})
 	}
 	totalPages := int64(0)

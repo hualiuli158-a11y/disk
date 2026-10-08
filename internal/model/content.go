@@ -9,6 +9,7 @@ type ContentItem struct {
 	ParentID  *uint64
 	Name      string
 	Size      *int64
+	SHA256    *string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

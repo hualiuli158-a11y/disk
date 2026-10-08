@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"disk/internal/service"
@@ -268,11 +271,141 @@ func (h *DownloadFileHandler) DownloadFile(c *gin.Context) {
 	c.Header("Content-Disposition", disposition)
 	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Length", strconv.FormatInt(result.Size, 10))
+	if result.SHA256 != "" {
+		c.Header("ETag", strconv.Quote(result.SHA256))
+		c.Header("X-File-SHA256", result.SHA256)
+	}
+	if !result.UpdatedAt.IsZero() {
+		c.Header("Last-Modified", result.UpdatedAt.UTC().Format(http.TimeFormat))
+	}
+	c.Header("Cache-Control", "no-store")
 	c.Status(http.StatusOK)
 	if _, err := io.Copy(c.Writer, result.Content); err != nil {
 		// 响应头可能已经发送，此时不能再改写为 JSON 错误响应。
 		h.baselogger.WithContext(c.Request.Context()).Errorf("stream downloaded file failed: %v", err)
 	}
+}
+
+type UpdateFileContentHandler struct {
+	files      *service.UpdateFileContentService
+	baselogger *logger.Logger
+}
+
+func NewUpdateFileContentHandler(files *service.UpdateFileContentService, baselogger *logger.Logger) *UpdateFileContentHandler {
+	return &UpdateFileContentHandler{files: files, baselogger: baselogger}
+}
+
+type UpdateFileContentResponse struct {
+	ID        uint64    `json:"id" example:"1"`
+	Name      string    `json:"name" example:"note.md"`
+	Size      int64     `json:"size" example:"1024"`
+	SHA256    string    `json:"sha256" example:"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// UpdateFileContent 使用当前内容版本作为前置条件，替换文本文件正文。
+// @Summary 更新文件正文
+// @Description 使用 If-Match 中的 SHA-256 强 ETag 防止覆盖并发修改；正文必须是 UTF-8 文本。
+// @Tags 文件
+// @Accept text/plain
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "文件 ID"
+// @Param If-Match header string true "当前文件 SHA-256 强 ETag"
+// @Param content body string true "新的 UTF-8 文本正文"
+// @Success 200 {object} UpdateFileContentResponse "保存成功"
+// @Failure 400 {object} app.ErrorResponse "请求、版本或文本编码不合法"
+// @Failure 401 {object} app.ErrorResponse "未提供有效的身份凭证"
+// @Failure 404 {object} app.ErrorResponse "文件不存在或无权访问"
+// @Failure 412 {object} app.ErrorResponse "文件已被其他操作修改"
+// @Failure 413 {object} app.ErrorResponse "正文超过大小限制"
+// @Failure 428 {object} app.ErrorResponse "缺少 If-Match 前置条件"
+// @Failure 507 {object} app.ErrorResponse "存储额度不足"
+// @Failure 500 {object} app.ErrorResponse "更新文件内容失败"
+// @Router /api/files/{id}/content [put]
+func (h *UpdateFileContentHandler) UpdateFileContent(c *gin.Context) {
+	value, exists := c.Get("user_id")
+	userID, valid := value.(uint64)
+	if !exists || !valid || userID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	}
+
+	fileID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || fileID == 0 {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+	ifMatch := strings.TrimSpace(c.GetHeader("If-Match"))
+	if ifMatch == "" {
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileVersionRequired)
+		return
+	}
+	expectedSHA256, ok := strongSHA256FromETag(ifMatch)
+	if !ok {
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, service.DefaultMaxEditableTextSize+1)
+	result, err := h.files.UpdateFileContent(c.Request.Context(), service.UpdateFileContentInput{
+		UserID:         userID,
+		FileID:         fileID,
+		ExpectedSHA256: expectedSHA256,
+		Content:        c.Request.Body,
+	})
+	switch {
+	case errors.Is(err, service.ErrFolderUserNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.AuthenticationRequired)
+		return
+	case errors.Is(err, service.ErrFileNotFound):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileNotFound)
+		return
+	case errors.Is(err, service.ErrInvalidFileVersion):
+		app.NewResponse(c).ToErrorResponse(errcode.InvalidParams)
+		return
+	case errors.Is(err, service.ErrInvalidTextContent):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrInvalidTextContent)
+		return
+	case errors.Is(err, service.ErrFileVersionConflict):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileVersionConflict)
+		return
+	case errors.Is(err, service.ErrFileContentTooLarge):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrFileContentTooLarge)
+		return
+	case errors.Is(err, service.ErrQuotaExceeded):
+		app.NewResponse(c).ToErrorResponse(errcode.ErrQuotaExceeded)
+		return
+	case err != nil:
+		h.baselogger.WithContext(c.Request.Context()).Errorf("update file content failed: %v", err)
+		app.NewResponse(c).ToErrorResponse(errcode.ErrUpdateFileContentFailed)
+		return
+	}
+
+	c.Header("ETag", strconv.Quote(result.SHA256))
+	c.Header("Cache-Control", "no-store")
+	app.NewResponse(c).ToResponse(UpdateFileContentResponse{
+		ID:        result.ID,
+		Name:      result.Name,
+		Size:      result.Size,
+		SHA256:    result.SHA256,
+		UpdatedAt: result.UpdatedAt,
+	})
+}
+
+func strongSHA256FromETag(value string) (string, bool) {
+	trimmed := strings.TrimSpace(value)
+	if strings.HasPrefix(trimmed, "W/") || strings.Contains(trimmed, ",") || trimmed == "*" {
+		return "", false
+	}
+	unquoted, err := strconv.Unquote(trimmed)
+	if err != nil || len(unquoted) != sha256.Size*2 {
+		return "", false
+	}
+	if _, err := hex.DecodeString(unquoted); err != nil {
+		return "", false
+	}
+	return strings.ToLower(unquoted), true
 }
 
 type DeleteFileHandler struct {

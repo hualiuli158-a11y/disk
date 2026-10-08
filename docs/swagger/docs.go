@@ -227,6 +227,107 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/files/{id}/content": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "使用 If-Match 中的 SHA-256 强 ETag 防止覆盖并发修改；正文必须是 UTF-8 文本。",
+                "consumes": [
+                    "text/plain"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件"
+                ],
+                "summary": "更新文件正文",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "文件 ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "当前文件 SHA-256 强 ETag",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "新的 UTF-8 文本正文",
+                        "name": "content",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "保存成功",
+                        "schema": {
+                            "$ref": "#/definitions/handler.UpdateFileContentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求、版本或文本编码不合法",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未提供有效的身份凭证",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "文件不存在或无权访问",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "412": {
+                        "description": "文件已被其他操作修改",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "正文超过大小限制",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "428": {
+                        "description": "缺少 If-Match 前置条件",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "更新文件内容失败",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    },
+                    "507": {
+                        "description": "存储额度不足",
+                        "schema": {
+                            "$ref": "#/definitions/app.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/files/{id}/download": {
             "get": {
                 "security": [
@@ -1354,6 +1455,9 @@ const docTemplate = `{
                 "parent_id": {
                     "type": "integer"
                 },
+                "sha256": {
+                    "type": "string"
+                },
                 "size": {
                     "type": "integer"
                 },
@@ -1788,6 +1892,30 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.UpdateFileContentResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "note.md"
+                },
+                "sha256": {
+                    "type": "string",
+                    "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 1024
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

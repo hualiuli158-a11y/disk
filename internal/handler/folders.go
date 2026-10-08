@@ -511,6 +511,7 @@ type ContentItemResponse struct {
 	ParentID  *uint64   `json:"parent_id"`
 	Name      string    `json:"name"`
 	Size      *int64    `json:"size,omitempty"`
+	SHA256    *string   `json:"sha256,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -599,6 +600,7 @@ func (h *FolderContentsHandler) ListContents(c *gin.Context) {
 			ParentID:  item.ParentID,
 			Name:      item.Name,
 			Size:      item.Size,
+			SHA256:    item.SHA256,
 			CreatedAt: item.CreatedAt,
 			UpdatedAt: item.UpdatedAt,
 		})
