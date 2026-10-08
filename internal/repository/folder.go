@@ -300,7 +300,7 @@ func (r *FoldersRepository) ListContents(
 
 	baseQuery := `
 		SELECT id, 'folder' AS kind, 0 AS kind_order, parent_id, name,
-		       CAST(NULL AS SIGNED) AS size, CAST(NULL AS CHAR(64)) AS sha256, created_at, updated_at
+		       CAST(NULL AS SIGNED) AS size, NULL AS sha256, created_at, updated_at
 		FROM folders
 		WHERE user_id = ? AND parent_id = ? AND deleted_at IS NULL
 		UNION ALL

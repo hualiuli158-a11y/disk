@@ -48,7 +48,7 @@ func (r *SearchRepository) Search(
 
 	pattern := "%" + query + "%"
 	folderQuery := `SELECT id, 'folder' AS kind, 0 AS kind_order, parent_id, name,
-		CAST(NULL AS SIGNED) AS size, CAST(NULL AS CHAR(64)) AS sha256, created_at, updated_at
+		CAST(NULL AS SIGNED) AS size, NULL AS sha256, created_at, updated_at
 		FROM folders WHERE user_id = ? AND parent_id IS NOT NULL AND deleted_at IS NULL AND name LIKE ?`
 	fileQuery := `SELECT f.id, 'file' AS kind, 1 AS kind_order, f.folder_id AS parent_id, f.name,
 		p.size AS size, p.sha256 AS sha256, f.created_at, f.updated_at
