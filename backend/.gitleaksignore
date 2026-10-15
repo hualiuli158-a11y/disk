@@ -1,0 +1,2 @@
+# Historical test-only JWT fixture; exact fingerprint only, not a path-wide exemption.
+997e9980a2f19383a6b282f71f959ac53fac0efe:internal/middleware/jwt_test.go:generic-api-key:44

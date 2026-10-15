@@ -1,0 +1,45 @@
+{
+  "release": "20261015-r1",
+  "go_base": "6ca204b (working-tree snapshot)",
+  "frontend_base": "4ef21b0 (working-tree snapshot)",
+  "cpp_commit": "76411c6",
+  "images": {
+    "cpp": "cpp_docker:20261015-r1",
+    "frontend": "disk_front:20261015-r1",
+    "go": "go_docker:20261015-r1"
+  },
+  "database_version": 2,
+  "database_migrated": false,
+  "tests": [
+    "Go unit suite passed",
+    "18 Playwright tests passed",
+    "MySQL repository integration passed",
+    "MySQL service integration passed",
+    "Go/C++ mutual TLS interoperability passed",
+    "Production browser smoke passed"
+  ],
+  "backup": "/home/ubuntu/releases/20261015-r1/backup-attempt2",
+  "test_helper_fix": "Unique certificate subjects; unconstrained CA EKU for OpenSSL compatibility",
+  "artifacts": [
+    {
+      "file": "go-source.tar",
+      "sha256": "84c2c196990b48b66a6e9dd0e6571415df3262917afb7d272d6585ea62f052a0",
+      "bytes": 833536
+    },
+    {
+      "file": "cpp-source.tar",
+      "sha256": "bdc2f2655320503cdc8d5c3ca3c0ad8cc051c198f5eb9b7815776113c599aeec",
+      "bytes": 61440
+    },
+    {
+      "file": "frontend-context.tar",
+      "sha256": "400c4f6f460c59d382e443bba3515d4c396b132a5217292dd1f2a4a52064e381",
+      "bytes": 2975232
+    },
+    {
+      "file": "go-runtime-final.tar.gz",
+      "sha256": "1014367edf4ab2b31300b17514387f66f10fd848c5a510195c189c2d925f2357",
+      "bytes": 16605660
+    }
+  ]
+}

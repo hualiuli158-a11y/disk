@@ -1,34 +1,72 @@
-# Environment variables and secrets
+# Secrets and local configuration
 .env
 .env.*
 !.env.example
-
-# Go build artifacts
+go.env
+*.env
+secrets/
+grpc-certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+# Data, backups and archives
+data/
+cpp-data/
+mysql-data/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.bak
+*.log
+# Dependencies, caches and build output
+node_modules/
+dist/
+test-results/
+playwright-report/
+.npm-cache/
+.cache/
+.gocache/
+__pycache__/
+*.pyc
+build/
+build-test/
+build-hardening/
+cmake-build-*
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+CMakeUserPresets.json
+*.o
+*.obj
+*.a
+*.lib
 *.exe
 *.dll
 *.so
+*.so.*
 *.dylib
+*.pdb
 *.test
 *.out
-coverage.out
-
-# Go workspace files
+$coveragePath
 go.work
 go.work.sum
-
-# Local caches
-.cache/
-.gocache/
-
-# Local documentation
-docs/file/
-
-# IDE and editor settings
+# Local tools
 .idea/
 .vscode/
-*.swp
-*~
-
-# Operating system files
+.codex/
+.agents/
+.aws/
 .DS_Store
 Thumbs.db

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1170" viewBox="0 0 1600 1170" role="img" aria-labelledby="title description">
+<title id="title">栖盘 HTTP 请求链路与生命周期</title>
+<desc id="description">浏览器解析域名后通过 HTTPS 到达宿主机 Nginx。Nginx 将静态资源转到前端容器，将 API 请求转到 Go。Go 通过 SQL 访问 MySQL，通过双向 TLS gRPC 访问 C++ 存储，响应经 Nginx 返回浏览器。</desc>
+<defs>
+<marker id="green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#477861"/></marker>
+<marker id="blue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#477ba7"/></marker>
+<marker id="purple" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#8068a0"/></marker>
+<marker id="orange" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#b27a3f"/></marker>
+<marker id="return" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#718278"/></marker>
+</defs>
+<style>
+text {font-family:"Microsoft YaHei","Noto Sans CJK SC","PingFang SC",sans-serif;fill:#243b30}
+.body {font-size:19px}.small {font-size:16px;fill:#607368}.heading {font-size:24px;font-weight:700}.label {font-size:16px;font-weight:600}
+.path {fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+</style>
+<rect width="1600" height="1170" fill="#f5f7f3"/>
+<text x="55" y="58" font-size="33" font-weight="700">HTTP 请求如何到达栖盘服务器</text>
+<text x="55" y="91" class="small">hualiuli.online · 49.235.86.75 · 发布版本 20261015-r1 · 实际部署链路</text>
+<rect x="482" y="125" width="1080" height="895" rx="25" fill="#edf2ee" stroke="#c0cec3" stroke-width="2" stroke-dasharray="7 7"/>
+<text x="507" y="153" class="small">云服务器：宿主机 Nginx + Docker Compose 项目 disk-stack</text>
+
+<rect x="55" y="195" width="285" height="365" rx="18" fill="#fff" stroke="#d1dcd3" stroke-width="1.5"/>
+<rect x="55" y="195" width="7" height="365" rx="3" fill="#477861"/>
+<text x="80" y="237" class="heading">① 浏览器</text>
+<text x="80" y="278" class="body">DNS：域名 → 公网 IP</text>
+<text x="80" y="310" class="small">DNS 只解析地址，不转发 HTTP</text>
+<text x="80" y="342" class="body">建立 TCP / TLS 连接</text>
+<text x="80" y="374" class="body">加载 HTML、JS、CSS</text>
+<text x="80" y="406" class="body">同源调用 /api/*</text>
+<text x="80" y="438" class="small">受保护 API 携带 Bearer Token</text>
+<text x="80" y="470" class="body">接收 JSON 或文件数据</text>
+<text x="80" y="502" class="small">前端据此更新页面、创建 Blob</text>
+<rect x="535" y="175" width="390" height="305" rx="18" fill="#fff" stroke="#d1dcd3" stroke-width="1.5"/>
+<rect x="535" y="175" width="7" height="305" rx="3" fill="#477861"/>
+<text x="560" y="217" class="heading">② Nginx 公网入口</text>
+<text x="560" y="258" class="body">443：终止浏览器 HTTPS / TLS</text>
+<text x="560" y="290" class="body">80：301 跳转到 HTTPS</text>
+<text x="560" y="322" class="body">③ 按 URL 路径选择上游</text>
+<text x="560" y="354" class="body">设置 X-Forwarded-Proto</text>
+<text x="560" y="386" class="small">转发 Host、客户端地址等信息</text>
+<text x="560" y="418" class="small">浏览器 TLS 在此结束，内部为 HTTP</text>
+<rect x="1105" y="175" width="435" height="200" rx="18" fill="#fff" stroke="#d1dcd3" stroke-width="1.5"/>
+<rect x="1105" y="175" width="7" height="200" rx="3" fill="#477ba7"/>
+<text x="1130" y="217" class="heading">③A 前端容器</text>
+<text x="1130" y="258" class="body">127.0.0.1:8082 → 容器 :80</text>
+<text x="1130" y="290" class="body">Nginx 提供 HTML / JS / CSS / 字体</text>
+<text x="1130" y="322" class="small">GET /、静态资源、单页应用路径回退</text>
+<text x="1130" y="354" class="small">页面加载后，浏览器另发 API 请求</text>
+<rect x="535" y="590" width="390" height="375" rx="18" fill="#fff" stroke="#d1dcd3" stroke-width="1.5"/>
+<rect x="535" y="590" width="7" height="375" rx="3" fill="#477ba7"/>
+<text x="560" y="632" class="heading">③B Go API 容器</text>
+<text x="560" y="673" class="body">127.0.0.1:8081 → 容器 :8080</text>
+<text x="560" y="705" class="body">④ 中间件：HTTPS、CORS</text>
+<text x="560" y="737" class="body">认证、限流、请求体与并发限制</text>
+<text x="560" y="769" class="small">具体限制按路由生效；/api 使用 JWT</text>
+<text x="560" y="801" class="body">⑤ Handler → Service</text>
+<text x="560" y="833" class="body">鉴权、配额、事务、版本与补偿</text>
+<text x="560" y="865" class="small">Context 传入数据库和 gRPC 调用</text>
+<text x="560" y="897" class="body">⑥ 返回 JSON 或流式文件响应</text>
+<text x="560" y="929" class="small">并非每个 API 都访问两个内部依赖</text>
+<rect x="1105" y="585" width="435" height="150" rx="18" fill="#fff" stroke="#d1dcd3" stroke-width="1.5"/>
+<rect x="1105" y="585" width="7" height="150" rx="3" fill="#8068a0"/>
+<text x="1130" y="627" class="heading">⑤A MySQL :3306</text>
+<text x="1130" y="668" class="body">用户、目录、权限、文件元数据与版本</text>
+<text x="1130" y="700" class="small">SQL 连接池；数据卷 mysql_data</text>
+<rect x="1105" y="805" width="435" height="195" rx="18" fill="#fff" stroke="#d1dcd3" stroke-width="1.5"/>
+<rect x="1105" y="805" width="7" height="195" rx="3" fill="#b27a3f"/>
+<text x="1130" y="847" class="heading">⑤B C++ gRPC :50051</text>
+<text x="1130" y="888" class="body">Put / Get / Delete / List</text>
+<text x="1130" y="920" class="body">Go 与 C++ 双向校验证书（mTLS）</text>
+<text x="1130" y="952" class="small">文件字节存入 /data</text>
+<text x="1130" y="984" class="small">宿主机持久目录：~/disk/cpp-data</text>
+<path d="M340 300 H535" class="path" stroke="#477861" marker-end="url(#green)"/>
+<text x="357" y="279" class="label">HTTPS / TCP 443</text>
+<path d="M535 405 H340" class="path" stroke="#718278" marker-end="url(#return)" stroke-dasharray="7 7"/>
+<text x="352" y="436" class="label">⑥ HTTPS 响应</text>
+<path d="M925 260 H1105" class="path" stroke="#477ba7" marker-end="url(#blue)"/>
+<text x="942" y="239" class="label">内部 HTTP：页面</text>
+<path d="M1105 329 H925" class="path" stroke="#718278" marker-end="url(#return)" stroke-dasharray="7 7"/>
+<text x="954" y="355" class="small">HTML / 静态资源</text>
+<path d="M760 480 V590" class="path" stroke="#477ba7" marker-end="url(#blue)"/>
+<text x="784" y="518" class="label">/login、/register</text>
+<text x="784" y="543" class="small">/api/*、/livez、/readyz</text>
+<path d="M580 590 V480" class="path" stroke="#718278" marker-end="url(#return)" stroke-dasharray="7 7"/>
+<text x="503" y="536" class="small">响应</text>
+<path d="M925 660 H1105" class="path" stroke="#8068a0" marker-end="url(#purple)" marker-start="url(#purple)"/>
+<text x="960" y="642" class="label">SQL / 结果</text>
+<path d="M925 875 H1105" class="path" stroke="#b27a3f" marker-end="url(#orange)" marker-start="url(#orange)"/>
+<text x="942" y="853" class="label">gRPC / mTLS</text>
+<text x="1110" y="1039" class="small">MySQL 与 C++ 使用 Docker 私有网络</text>
+<text x="1110" y="1065" class="small">此项目的 3306 / 50051 不映射宿主机端口</text>
+<rect x="55" y="1048" width="1000" height="86" rx="16" fill="#e5ede7"/>
+<text x="78" y="1080" class="body">请求完成后释放本次资源；HTTP、gRPC 与数据库连接可复用。</text>
+<text x="78" y="1111" class="small">客户端断开 / 超时通过 Context 取消；SIGTERM 时 Go 停止接入并排空在途请求。</text>
+</svg>

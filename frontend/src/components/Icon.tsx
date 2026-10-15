@@ -1,0 +1,50 @@
+import React from 'react';
+
+const paths: Record<string, React.ReactNode> = {
+  grid: <><rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/></>,
+  folder: <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>,
+  folderPlus: <><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v6m-3-3h6"/></>,
+  file: <><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v6h5"/></>,
+  image: <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 16-5-5L5 21"/></>,
+  video: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></>,
+  audio: <><path d="M4 10v4M8 7v10M12 5v14M16 8v8M20 11v2"/></>,
+  code: <><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></>,
+  markdown: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6.5 15V9l3 3 3-3v6M16 9v6m-2-2 2 2 2-2"/></>,
+  pdf: <><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v6h5"/><path d="M8 14h8M8 17h6"/></>,
+  archive: <><path d="M5 4h14v16H5zM5 8h14"/><path d="M10 4v4m4-4v4M10 12h4v4h-4z"/></>,
+  search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
+  star: <path d="m12 2 3.1 6.4 7 1-5.1 5 .9 7-5.9-3.2-5.9 3.2.9-7-5.1-5 7-1z"/>,
+  trash: <><path d="M4 7h16M9 7V4h6v3m4 0-1 14H6L5 7m5 4v6m4-6v6"/></>,
+  settings: <><circle cx="12" cy="12" r="3"/><path d="M4.7 9.2 3 10v4l1.7.8.8 1.4-.2 1.9 3.4 2 1.5-1.2h1.6l1.5 1.2 3.4-2-.2-1.9.8-1.4L19 14v-4l-1.7-.8-.8-1.4.2-1.9-3.4-2-1.5 1.2h-1.6L8.7 3.9l-3.4 2 .2 1.9z"/></>,
+  plus: <path d="M12 5v14M5 12h14"/>,
+  minus: <path d="M5 12h14"/>,
+  fit: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></>,
+  chevron: <path d="m9 18 6-6-6-6"/>,
+  down: <path d="m6 9 6 6 6-6"/>,
+  close: <path d="M6 6l12 12M18 6 6 18"/>,
+  more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
+  eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></>,
+  edit: <><path d="M13 5 19 11M4 20l4.5-.7L20 7.8a2 2 0 0 0-2.8-2.8L5.7 16.5z"/></>,
+  move: <><path d="M4 7h11M11 3l4 4-4 4"/><path d="M20 17H9m4-4-4 4 4 4"/></>,
+  sort: <><path d="M7 5h13M7 12h9M7 19h5"/><path d="m3 4-2 2 2 2M1 6h4"/></>,
+  filter: <path d="M3 5h18l-7 8v5l-4 2v-7z"/>,
+  columns: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></>,
+  sparkles: <><path d="m12 2 1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/><path d="m19 17 .6 1.4L21 19l-1.4.6L19 21l-.6-1.4L17 19l1.4-.6z"/></>,
+  outline: <><path d="M7 5h14M7 12h14M7 19h14"/><circle cx="3" cy="5" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="19" r="1"/></>,
+  upload: <><path d="M12 16V3m-5 5 5-5 5 5"/><path d="M4 16v4h16v-4"/></>,
+  download: <><path d="M12 3v13m-5-5 5 5 5-5"/><path d="M4 17v4h16v-4"/></>,
+  arrowLeft: <path d="m14 5-7 7 7 7M7 12h14"/>,
+  check: <path d="m4 12 5 5L20 6"/>,
+  info: <><circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/></>,
+  user: <><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></>,
+  lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
+  logout: <><path d="M10 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5"/><path d="m15 16 4-4-4-4m4 4H9"/></>,
+  panel: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></>, 
+  clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></>,
+  external: <><path d="M12 5h7v7m0-7-9 9"/><path d="M19 14v5H5V5h5"/></>,
+};
+
+export default function Icon({ name, size = 18, strokeWidth = 1.8, className = '' }: { name: string; size?: number; strokeWidth?: number; className?: string }) {
+  return <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.file}</svg>;
+}
+

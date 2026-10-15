@@ -1,0 +1,44 @@
+name: disk-stack
+
+services:
+  mysql:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请设置数据库root密码}
+      MYSQL_DATABASE: disk
+      MYSQL_USER: diskapp
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请设置业务数据库密码}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  cpp-service:
+    image: cpp_docker:latest
+    pull_policy: never
+    restart: unless-stopped
+
+  go-service:
+    image: go_docker:latest
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./go.env
+    volumes:
+      - upload_data:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+      cpp-service:
+        condition: service_started
+
+volumes:
+  mysql_data:
+  upload_data:

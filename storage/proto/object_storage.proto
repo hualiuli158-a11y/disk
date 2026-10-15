@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package objectstorage.v1;
+
+option go_package = "disk/internal/storage/grpcstore/pb;pb";
+
+// Keys are opaque identifiers supplied by the Go application. The server owns
+// bytes only; authorization, metadata and reference counting remain in Go.
+service ObjectStorage {
+  rpc Put(stream PutRequest) returns (PutReply);
+  rpc Get(GetRequest) returns (stream GetReply);
+  rpc Delete(DeleteRequest) returns (DeleteReply);
+  rpc List(ListRequest) returns (stream ListReply);
+}
+
+message PutRequest {
+  // The first message must contain key. Following messages contain data.
+  oneof payload {
+    string key = 1;
+    bytes data = 2;
+  }
+}
+
+message PutReply { uint64 size = 1; }
+
+message GetRequest { string key = 1; }
+
+message GetReply {
+  // The first message contains size, including for an empty object.
+  oneof payload {
+    uint64 size = 1;
+    bytes data = 2;
+  }
+}
+
+message DeleteRequest { string key = 1; }
+message DeleteReply {}
+
+message ListRequest {
+  string prefix = 1;
+  // Empty for the first page. Subsequent pages start strictly after this key.
+  string after_key = 2;
+  // Zero retains the original unpaged RPC for older clients. New clients use
+  // a positive limit up to 1000 and repeat with the last returned key.
+  uint32 limit = 3;
+}
+message ListReply {
+  string key = 1;
+  uint64 size = 2;
+  int64 modified_at_unix_ms = 3;
+}
