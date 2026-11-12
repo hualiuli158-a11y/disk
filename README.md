@@ -11,12 +11,18 @@ src/
   http_types.*                  HTTP 请求与响应结构、JSON 响应编码
   services/
     account_service.*           账号校验、密码与令牌、用户信息和配额
-    folder_service.*            目录业务、名称和列表查询校验
-    file_service.*              上传下载流程、哈希、候选对象清理
+    folder_service.*            目录业务、重命名与移动防循环校验、列表查询
+    file_service.*              上传下载流程、重命名与移动、哈希与候选对象清理
+    search_service.*            搜索文本校验、类型过滤与排序分页
+    trash_service.*             回收站软删除、恢复、永久删除与底层对象清理
+    query_validation.h          分页与参数范围校验辅助
   repositories/
     user_repository.*           用户与根目录的数据库操作
-    folder_repository.*         目录和内容列表查询、目录创建事务
-    file_repository.*           文件元数据、去重与配额事务、清理时的锁
+    folder_repository.*         目录树查询、创建、重命名与移动事务
+    file_repository.*           文件元数据、去重配额、重命名与移动事务
+    search_repository.*         文件名与目录名多条件搜索
+    trash_repository.*          软删除、回收站树恢复、级联硬删除与引用清理
+    repository_support.*        公共 SQL 排序、树遍历与用户行级锁辅助
   models.h                      服务与仓储之间的业务数据结构
   database.*                    Boost.MySQL 连接池、执行环境和事务
   storage.*                     对象存储接口、gRPC 客户端和传输队列
@@ -24,9 +30,11 @@ src/
   common.*                      输入校验、JSON 解析和字符处理
 ```
 
-请求经 Application 进入 AccountService、FolderService 或 FileService。业务服务通过对应 Repository 访问 MySQL，Repository 返回业务数据结构，再由 Application 编码为 HTTP 响应。FileService 通过 ObjectStorage 完成文件内容读写。
+请求经 Application 进入 AccountService、FolderService、FileService、SearchService 或 TrashService。业务服务通过对应 Repository 访问 MySQL，Repository 返回业务数据结构，再由 Application 编码为 HTTP 响应。FileService 与 TrashService 通过 ObjectStorage 完成文件内容读写和物理对象清理。
 
 注册与根目录创建在 UserRepository 的同一个事务中执行。上传的配额检查、内容去重、文件和初始版本记录、容量更新在 FileRepository 的同一个事务中执行。候选对象清理通过事务内回调持有存储 Key 的锁，协调数据库提交结果与对象删除。
+
+目录移动时递归向上检查目标目录的所有父节点，杜绝将父目录移动到其自身或子目录产生循环；回收站恢复时若原父目录已失效，自动将资源恢复至根目录，若恢复位置存在同名资源返回 409 冲突；永久删除时联动扣减用户已用配额，并仅在没有任何其他文件或历史版本引用时才删除底层物理对象。
 
 ## 当前接口
 
@@ -38,13 +46,23 @@ src/
 | POST | /api/folders | 创建子目录 |
 | GET | /api/folders/:id/children | 子目录列表 |
 | GET | /api/folders/:id/contents | 文件和目录混合分页、排序 |
+| PATCH | /api/folders/:id | 文件夹重命名 |
+| PATCH | /api/folders/:id/move | 文件夹移动（含循环移动校验） |
+| DELETE | /api/folders/:id | 文件夹递归软删除至回收站 |
 | POST | /api/files | 流式 multipart 上传、SHA-256 去重及初始版本记录 |
 | GET | /api/files/:id/download | 流式下载及 ETag |
+| PATCH | /api/files/:id | 文件重命名 |
+| PATCH | /api/files/:id/move | 文件移动 |
+| DELETE | /api/files/:id | 文件软删除至回收站 |
+| GET | /api/search | 文件与文件夹搜索（支持按类型、排序与分页） |
+| GET | /api/trash | 回收站条目分页列表 |
+| POST | /api/trash/:id/restore | 资源从回收站恢复（同名冲突校验、父目录失效自动恢复至根目录） |
+| DELETE | /api/trash/:id | 永久删除（级联清理、逻辑配额返还、无引用物理对象及文件释放） |
 | GET | /livez、/readyz | 存活及数据库、存储可用性检查 |
 
 上传使用四个 64 KiB HTTP 正文块的队列，队列满时暂停 Connection 读取。下载按写完成回调继续读取下一块。每个用户最多同时接受两项上传，传输线程池和业务线程池分别运行。请求断开会终止队列等待并取消存储 RPC。
 
-后续里程碑包括重命名、移动、回收站、搜索、后台孤儿对象清理，再接在线编辑及历史版本操作。现有 React 前端包含这些后续入口，当前应先使用登录、创建目录、上传、列表和下载功能。
+目前已完成第二优先级（日常文件管理：重命名、移动、搜索、回收站全流程）。后续里程碑为第三优先级（后台周期性孤儿对象回收、回收站自动过期清理及失败重试）与第四优先级（在线文本编辑、`If-Match` 乐观锁冲突检查、历史版本列表及版本恢复）。现有 React 前端日常文件管理所有功能均已对齐并支持全链路操作。
 
 ## 构建
 
