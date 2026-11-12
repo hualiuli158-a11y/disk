@@ -1,0 +1,6 @@
+/build/
+/.env
+/data/
+/frontend/node_modules/
+/frontend/dist/
+/.idea/

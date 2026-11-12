@@ -1,0 +1,11 @@
+/build/
+/build-test/
+/build-hardening/
+/cmake-build-*/
+/.idea/
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
