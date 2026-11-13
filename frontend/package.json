@@ -8,6 +8,7 @@
     "dev:api": "vite --host 0.0.0.0 --mode integration",
     "build": "tsc --noEmit && vite build",
     "test:e2e": "playwright test",
+    "test:e2e:integration": "playwright test -c playwright.integration.config.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

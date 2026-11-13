@@ -34,7 +34,9 @@ src/
 
 注册与根目录创建在 UserRepository 的同一个事务中执行。上传的配额检查、内容去重、文件和初始版本记录、容量更新在 FileRepository 的同一个事务中执行。候选对象清理通过事务内回调持有存储 Key 的锁，协调数据库提交结果与对象删除。
 
-目录移动时递归向上检查目标目录的所有父节点，杜绝将父目录移动到其自身或子目录产生循环；回收站恢复时若原父目录已失效，自动将资源恢复至根目录，若恢复位置存在同名资源返回 409 冲突；永久删除时联动扣减用户已用配额，并仅在没有任何其他文件或历史版本引用时才删除底层物理对象。
+目录移动时向上检查目标目录的父链，拦截移入自身或子树的操作。回收站恢复时，原父目录失效会回退到用户根目录，同名冲突返回 409。
+
+永久删除在 MySQL 事务内清理逻辑记录、返还配额，并检查当前文件和历史版本的引用。事务提交后，再通过存储 RPC 删除无引用对象。存储 RPC 失败时记录清理失败日志，磁盘残留由第三阶段的孤儿扫描和失败重试处理。
 
 ## 当前接口
 
@@ -54,15 +56,15 @@ src/
 | PATCH | /api/files/:id | 文件重命名 |
 | PATCH | /api/files/:id/move | 文件移动 |
 | DELETE | /api/files/:id | 文件软删除至回收站 |
-| GET | /api/search | 文件与文件夹搜索（支持按类型、排序与分页） |
+| GET | /api/search | 文件与目录的名称搜索（MySQL LIKE 匹配、类型筛选、排序与分页） |
 | GET | /api/trash | 回收站条目分页列表 |
 | POST | /api/trash/:id/restore | 资源从回收站恢复（同名冲突校验、父目录失效自动恢复至根目录） |
-| DELETE | /api/trash/:id | 永久删除（级联清理、逻辑配额返还、无引用物理对象及文件释放） |
+| DELETE | /api/trash/:id | 永久删除、逻辑配额返还和无引用对象清理 |
 | GET | /livez、/readyz | 存活及数据库、存储可用性检查 |
 
 上传使用四个 64 KiB HTTP 正文块的队列，队列满时暂停 Connection 读取。下载按写完成回调继续读取下一块。每个用户最多同时接受两项上传，传输线程池和业务线程池分别运行。请求断开会终止队列等待并取消存储 RPC。
 
-目前已完成第二优先级（日常文件管理：重命名、移动、搜索、回收站全流程）。后续里程碑为第三优先级（后台周期性孤儿对象回收、回收站自动过期清理及失败重试）与第四优先级（在线文本编辑、`If-Match` 乐观锁冲突检查、历史版本列表及版本恢复）。现有 React 前端日常文件管理所有功能均已对齐并支持全链路操作。
+第二优先级已实现重命名、移动、名称搜索和回收站业务。真实 Chrome integration 回归已覆盖注册登录、目录创建、上传下载、重命名冲突、文件和目录移动、名称搜索、回收站恢复及递归永久删除。后续里程碑为第三优先级（后台周期性孤儿对象回收、回收站自动过期清理及失败重试）与第四优先级（在线文本编辑、`If-Match` 乐观锁冲突检查、历史版本列表及版本恢复）。分片上传、进度查询和断点续传属于后续扩展。
 
 ## 构建
 
@@ -106,14 +108,26 @@ npm run dev:api
 
 ## 验证
 
-CTest 的传输测试覆盖连接复用、定长/分块/并发上传、32 MiB 下载、非法 HTTP、认证前置和中断上传。
+CTest 当前注册一个传输用例，覆盖连接复用、定长/分块/并发上传、32 MiB 下载、非法 HTTP、认证前置，以及中断后的取消与资源释放。Windows 下通过 ENVIRONMENT_MODIFICATION 将编译器目录前置到测试进程的 PATH，并继承运行 CTest 时的其余 PATH。
 
-在已迁移的独立测试数据库和运行中的存储节点上，设置 DB_*、JWT_*、STORAGE_ADDRESS、PORT 后运行真实接口测试。该测试创建随机名称的用户和测试文件，使用专用测试库与对象目录。
+业务接口通过下述 Python 命令验收，覆盖账号、目录、上传下载、重命名、移动、搜索、回收站、权限和并发规则。在已迁移的独立测试数据库和运行中的存储节点上，设置 DB_*、JWT_*、STORAGE_ADDRESS、PORT 后执行。该测试创建随机名称的用户和测试文件，使用专用测试库与对象目录。
 
 设置 MYSQL_CLIENT 为 mysql 客户端路径时，测试还会直接核验去重记录、bcrypt 跨库兼容以及并发配额，需安装 Python bcrypt 包。
 
 ```powershell
 python tests/api_integration.py build/mingw-debug/disk_api.exe
 ```
+
+frontend/playwright.config.ts 默认启动 npm run dev，该模式使用演示数据，测试覆盖浏览器交互。
+
+真实后端浏览器回归使用 frontend/playwright.integration.config.ts，连接运行中的专用测试 MySQL、存储节点和 C++ API，使用本机 Chrome 执行。测试创建随机账号并从页面完成业务操作，同时核验真实接口响应、刷新后的持久化数据、下载字节和浏览器运行时错误。
+
+```powershell
+cd frontend
+$env:DISK_API_TARGET = 'http://127.0.0.1:8080'
+npm run test:e2e:integration
+```
+
+integration 配置启动 127.0.0.1:5174 的前端服务，DISK_API_TARGET 默认指向 127.0.0.1:8080。测试报告输出到 build/browser-e2e-report/，截图和下载校验文件输出到 build/browser-e2e-results/。可以在 frontend/ 下执行 npx playwright show-report ../build/browser-e2e-report 查看报告。
 
 frontend/、storage/ 和 migrations/ 取自 hualiuli158-a11y/disk 的 master 源码快照。C++ API 实现位于 src/。
