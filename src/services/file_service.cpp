@@ -21,6 +21,11 @@ std::string NewKey()
 UploadedFile FileService::Upload(const UploadInput &input, const std::shared_ptr<Cancellation> &cancel)
 {
     const auto name = NormalizeName(input.name);
+    std::optional<std::uint64_t> declaredSize;
+    if (input.declaredSize)
+        declaredSize = ParseUploadSize(*input.declaredSize);
+    // The transaction at commit time rechecks ownership and quota after transfer.
+    files_.CheckUpload(input.user, input.folder, declaredSize);
     const std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> digest(EVP_MD_CTX_new(), EVP_MD_CTX_free);
     if (!digest || EVP_DigestInit_ex(digest.get(), EVP_sha256(), nullptr) != 1)
         throw std::runtime_error("SHA256 initialization failed");
@@ -43,7 +48,7 @@ UploadedFile FileService::Upload(const UploadInput &input, const std::shared_ptr
             cancel);
         if (cancel->Cancelled())
             throw Error(499, "Upload cancelled");
-        if (input.declaredSize && *input.declaredSize != std::to_string(size))
+        if (declaredSize && *declaredSize != size)
             throw Error(400, "Upload size mismatch");
         unsigned char bytes[EVP_MAX_MD_SIZE];
         unsigned int length = 0;

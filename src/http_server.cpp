@@ -85,7 +85,10 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
         closed_ = true;
         Cancel();
         if (const auto connection = connection_.lock())
+        {
             connection->Loop()->CancelTimer(timer_);
+            connection->Loop()->CancelTimer(uploadIdleTimer_);
+        }
         reader_.reset();
     }
     void Read(Buffer *input)
@@ -124,6 +127,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
                 {
                     if (pipe_)
                     {
+                        lastBodyProgress_ = std::chrono::steady_clock::now();
                         if (!pipe_->Push(std::string(block_.data(), produced)))
                             throw Error(400, "Upload stream closed");
                     }
@@ -139,7 +143,10 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
                     waiting_ = true;
                     connection_.lock()->PauseRead();
                     if (pipe_)
+                    {
+                        connection_.lock()->Loop()->CancelTimer(uploadIdleTimer_);
                         pipe_->Finish();
+                    }
                     else
                         Dispatch(false);
                     return;
@@ -250,6 +257,10 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
             throw Error(417, "Expect is unsupported");
         if (request_.method == "POST" && request_.path == "/api/files")
         {
+            const auto declared = request_.headers.find("x-upload-size");
+            if (declared != request_.headers.end() &&
+                ParseUploadSize(declared->second) > server_.config_.maxUploadBytes)
+                throw Error(413, "File exceeds upload limit");
             {
                 const std::lock_guard lock(cancelMutex_);
                 if (cancellation_->Cancelled())
@@ -258,22 +269,38 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
             }
             if (!server_.AcquireUpload(request_.user))
                 throw Error(429, "Concurrent upload limit reached");
-            const std::weak_ptr<HttpSession> weak = shared_from_this();
-            pipe_->OnConsumed(
-                [weak]
-                {
-                    if (auto self = weak.lock())
-                        if (auto connection = self->connection_.lock())
-                        {
-                            connection->Loop()->QueueInLoop(
-                                [self, connection]
-                                {
-                                    if (!self->closed_ && !self->waiting_)
-                                        connection->ResumeRead();
-                                });
-                        }
-                });
-            Dispatch(true);
+            try
+            {
+                const std::weak_ptr<HttpSession> weak = shared_from_this();
+                pipe_->OnConsumed(
+                    [weak]
+                    {
+                        if (auto self = weak.lock())
+                            if (auto connection = self->connection_.lock())
+                                connection->Loop()->QueueInLoop(
+                                    [self, connection]
+                                    {
+                                        if (!self->closed_ && !self->waiting_)
+                                        {
+                                            self->lastBodyProgress_ = std::chrono::steady_clock::now();
+                                            connection->ResumeRead();
+                                        }
+                                    });
+                    });
+                lastBodyProgress_ = std::chrono::steady_clock::now();
+                uploadIdleTimer_ = connection_.lock()->Loop()->RunEvery(std::chrono::seconds(1),
+                                                                        [weak]
+                                                                        {
+                                                                            if (auto self = weak.lock())
+                                                                                self->CheckUploadIdle();
+                                                                        });
+                Dispatch(true);
+            }
+            catch (...)
+            {
+                server_.ReleaseUpload(request_.user);
+                throw;
+            }
         }
         else if (parser_->content_length() && *parser_->content_length() > 65536)
             throw Error(413, "Request body too large");
@@ -284,8 +311,12 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
         auto request = request_;
         const auto pipe = pipe_;
         const auto cancel = cancellation_;
-        auto &pool = upload ? server_.transfers_ : server_.business_;
-        const bool posted = pool.Post(
+        auto *pool = &server_.business_;
+        if (upload)
+            pool = &server_.uploadWorkers_;
+        else if (request.method == "GET" && (request.path == "/livez" || request.path == "/readyz"))
+            pool = &server_.healthWorkers_;
+        const bool posted = pool->Post(
             [self, request = std::move(request), pipe, cancel, upload]
             {
                 Response response;
@@ -311,9 +342,17 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
             });
         if (!posted)
         {
-            if (upload)
-                server_.ReleaseUpload(request_.user);
             throw Error(503, "Server work queue full");
+        }
+    }
+    void CheckUploadIdle()
+    {
+        if (closed_ || waiting_ || responding_ || !pipe_ || pipe_->Full())
+            return;
+        if (std::chrono::steady_clock::now() - lastBodyProgress_ >= server_.config_.uploadIdleTimeout)
+        {
+            connection_.lock()->Loop()->CancelTimer(uploadIdleTimer_);
+            Respond(ErrorResponse(408, "Upload body idle timeout"), true);
         }
     }
     void Respond(Response response, bool close)
@@ -395,7 +434,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
         const auto self = shared_from_this();
         const auto reader = reader_;
         const auto cancel = cancellation_;
-        if (!server_.transfers_.Post(
+        if (!server_.downloadWorkers_.Post(
                 [self, reader, cancel]
                 {
                     std::string block;
@@ -460,6 +499,8 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     std::shared_ptr<BodyPipe> pipe_;
     std::shared_ptr<ObjectReader> reader_;
     TimerHandle timer_;
+    TimerHandle uploadIdleTimer_;
+    std::chrono::steady_clock::time_point lastBodyProgress_;
     bool closed_ = false, headerDone_ = false, waiting_ = false, responding_ = false, keepAlive_ = false;
     std::uint64_t remaining_ = 0;
 };
@@ -537,24 +578,33 @@ void HttpServer::Stop()
         [this]
         {
             business_.Join();
-            transfers_.Join();
+            uploadWorkers_.Join();
+            downloadWorkers_.Join();
+            healthWorkers_.Join();
             tcp_.Stop();
         });
 }
 bool HttpServer::AcquireUpload(std::uint64_t user)
 {
     const std::lock_guard lock(mutex_);
+    if (activeUploads_ >= config_.maxConcurrentUploads)
+        return false;
     auto &count = uploads_[user];
     if (count >= 2)
         return false;
     ++count;
+    ++activeUploads_;
     return true;
 }
 void HttpServer::ReleaseUpload(std::uint64_t user)
 {
     const std::lock_guard lock(mutex_);
     const auto found = uploads_.find(user);
-    if (found != uploads_.end() && --found->second == 0)
-        uploads_.erase(found);
+    if (found != uploads_.end())
+    {
+        --activeUploads_;
+        if (--found->second == 0)
+            uploads_.erase(found);
+    }
 }
 } // namespace disk

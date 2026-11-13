@@ -110,6 +110,15 @@ std::string NormalizeName(const std::string &input)
             throw Error(400, "Invalid file or folder name");
     return name;
 }
+std::uint64_t ParseUploadSize(const std::string &input)
+{
+    const auto text = Trim(input);
+    std::uint64_t value = 0;
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (text.empty() || parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())
+        throw Error(400, "Invalid X-Upload-Size");
+    return value;
+}
 std::string Hex(const unsigned char *bytes, std::size_t size)
 {
     constexpr char alphabet[] = "0123456789abcdef";

@@ -47,7 +47,7 @@ def run(executable):
         ], input=statement, text=True, capture_output=True, env=environment, check=True)
         return result.stdout.strip()
 
-    def upload(token, folder, name, content, expected=200, chunked=False):
+    def upload(token, folder, name, content, expected=200, chunked=False, declared_size=None):
         boundary = 'disk-test-' + uuid.uuid4().hex
         prefix = (f'--{boundary}\r\nContent-Disposition: form-data; name="folder_id"\r\n\r\n{folder}\r\n'
                   f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{name}"\r\n'
@@ -57,6 +57,8 @@ def run(executable):
         client.putrequest('POST', '/api/files')
         client.putheader('Authorization', f'Bearer {token}')
         client.putheader('Content-Type', f'multipart/form-data; boundary="{boundary}"')
+        if declared_size is not None:
+            client.putheader('X-Upload-Size', str(declared_size))
         client.putheader('Transfer-Encoding' if chunked else 'Content-Length', 'chunked' if chunked else str(len(prefix) + len(content) + len(suffix)))
         client.endheaders()
         # A prime fragment length exercises multipart boundaries split across network reads.
@@ -101,6 +103,26 @@ def run(executable):
         folder = json_request('POST', '/api/folders', {'parent_id': root, 'name': 'uploads'}, token=token)['id']
         json_request('POST', '/api/folders', {'parent_id': root, 'name': 'uploads'}, token=token, expected=409)
         assert json_request('GET', '/api/quota', token=token)['used'] == 0
+
+        def early_upload(folder_id, declared_size, expected):
+            boundary = 'preflight-' + uuid.uuid4().hex
+            client = http.client.HTTPConnection(host, port, timeout=10)
+            client.putrequest('POST', '/api/files')
+            client.putheader('Authorization', f'Bearer {token}')
+            client.putheader('Content-Type', f'multipart/form-data; boundary={boundary}')
+            client.putheader('Content-Length', '1000000')
+            client.putheader('X-Upload-Size', str(declared_size))
+            client.endheaders()
+            client.send((f'--{boundary}\r\nContent-Disposition: form-data; name="folder_id"\r\n\r\n{folder_id}\r\n'
+                         f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="preflight.bin"\r\n\r\npartial').encode())
+            response = client.getresponse()
+            assert response.status == expected, (response.status, response.read())
+            response.read()
+            client.close()
+
+        early_upload(18446744073709551615, 100, 404)
+        early_upload(folder, -1, 400)
+        early_upload(folder, 1073741825, 413)
         root_listing = json_request('GET', '/api/folders/root/children', token=token)
         assert root_listing['root']['parent_id'] is None
         assert [child['id'] for child in root_listing['children']] == [folder]
@@ -126,7 +148,7 @@ def run(executable):
         second = upload(token, folder, 'same-content.bin', content, chunked=True)
         assert second['id'] != first['id']
         assert json_request('GET', '/api/quota', token=token)['used'] == len(content) * 2
-        empty = upload(token, folder, 'empty.txt', b'')
+        empty = upload(token, folder, 'empty.txt', b'', declared_size=0)
         assert request('GET', f'/api/files/{empty["id"]}/download', token=token)[0] == b''
         listing = json_request('GET', f'/api/folders/{folder}/contents?page_size=2&page=1&sort=name&order=asc', token=token)
         assert listing['total'] == 3 and len(listing['items']) == 2
@@ -180,6 +202,7 @@ def run(executable):
                 jobs = [pool.submit(upload, token, folder, f'quota-{i}.bin', data, (200, 507)) for i in range(2)]
                 assert sorted(job.result()['_status'] for job in jobs) == [200, 507]
             assert json_request('GET', '/api/quota', token=token)['used'] == used + len(data)
+            early_upload(folder, 1, 507)
             print('PASS bcrypt interoperability, database dedup and concurrent quota enforcement', flush=True)
         print('PASS real MySQL + gRPC storage: registration/login, folders, binary/chunked/empty uploads, download/hash, dedup, quota, pagination, ownership, JWT')
     finally:

@@ -31,10 +31,13 @@ class HttpServer
     Handler handler_;
     TcpServer tcp_;
     BusinessPool business_{4, 64};
-    BusinessPool transfers_{4, 16};
+    BusinessPool healthWorkers_{1, 4};
+    BusinessPool uploadWorkers_{4, 64};
+    BusinessPool downloadWorkers_{4, 16};
     std::mutex mutex_;
     std::map<std::uint64_t, std::shared_ptr<HttpSession>> sessions_;
     std::map<std::uint64_t, unsigned> uploads_;
+    std::size_t activeUploads_ = 0;
     std::atomic<bool> stopping_{false};
     std::thread shutdown_;
 };

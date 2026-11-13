@@ -4,6 +4,24 @@
 namespace disk
 {
 namespace mysql = boost::mysql;
+void FileRepository::CheckUpload(std::uint64_t user, std::uint64_t folder, std::optional<std::uint64_t> size)
+{
+    auto connection = database_.Get();
+    const auto result = database_.Execute(
+        connection.get(),
+        mysql::with_params("SELECT u.used_quota,u.quota_limit,f.id FROM users u LEFT JOIN folders f "
+                           "ON f.user_id=u.id AND f.id={} AND f.deleted_at IS NULL WHERE u.id={}",
+                           folder, user));
+    if (result.rows().empty())
+        throw Error(401, "User not found");
+    const auto row = result.rows()[0];
+    if (row[2].is_null())
+        throw Error(404, "Upload folder not found");
+    const auto used = row[0].as_int64();
+    const auto limit = row[1].as_int64();
+    if (size && (used < 0 || used > limit || *size > static_cast<std::uint64_t>(limit - used)))
+        throw Error(507, "Storage quota exceeded");
+}
 UploadCommit FileRepository::CreateUploadedFile(const UploadedObject &object)
 {
     const auto user = object.user;

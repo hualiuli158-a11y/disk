@@ -34,36 +34,70 @@ int main()
     config.port = 0;
     config.jwtSecret = std::string(48, 't');
     config.corsOrigin = "http://localhost:5173";
+    config.uploadIdleTimeout = std::chrono::seconds(2);
+    std::atomic<unsigned> activeUploads{0};
+    std::atomic<unsigned> activeBusiness{0};
     disk::Auth auth(config);
     if (auth.Verify("Bearer " + auth.Token(UINT64_MAX)) != UINT64_MAX)
         return 1;
-    disk::HttpServer server(config, auth,
-                            [](const auto &request, const auto &pipe, const auto &cancel)
-                            {
-                                if (pipe)
-                                {
-                                    std::uint64_t count = 0;
-                                    std::string block;
-                                    while (pipe->Pop(block))
-                                    {
-                                        count += block.size();
-                                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                                    }
-                                    Json::Value result;
-                                    result["size"] = Json::UInt64(count);
-                                    return disk::JsonResponse(result);
-                                }
-                                if (request.path == "/download")
-                                {
-                                    disk::Response response;
-                                    response.reader = std::make_shared<GeneratedReader>();
-                                    return response;
-                                }
-                                Json::Value result;
-                                result["body"] = request.body;
-                                result["path"] = request.path;
-                                return disk::JsonResponse(result);
-                            });
+    disk::HttpServer server(
+        config, auth,
+        [&activeUploads, &activeBusiness](const auto &request, const auto &pipe, const auto &cancel)
+        {
+            if (pipe)
+            {
+                struct UploadActivity
+                {
+                    std::atomic<unsigned> &count;
+                    ~UploadActivity()
+                    {
+                        --count;
+                    }
+                };
+                ++activeUploads;
+                const UploadActivity activity{activeUploads};
+                if (request.user == 600)
+                    std::this_thread::sleep_for(std::chrono::seconds(4));
+                std::uint64_t count = 0;
+                std::string block;
+                while (pipe->Pop(block))
+                {
+                    count += block.size();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+                Json::Value result;
+                result["size"] = Json::UInt64(count);
+                return disk::JsonResponse(result);
+            }
+            if (request.path == "/upload-status")
+            {
+                Json::Value value;
+                value["active"] = activeUploads.load();
+                return disk::JsonResponse(value);
+            }
+            if (request.path == "/busy")
+            {
+                ++activeBusiness;
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                --activeBusiness;
+            }
+            if (request.path == "/livez")
+            {
+                Json::Value value;
+                value["active_business"] = activeBusiness.load();
+                return disk::JsonResponse(value);
+            }
+            if (request.path == "/download")
+            {
+                disk::Response response;
+                response.reader = std::make_shared<GeneratedReader>();
+                return response;
+            }
+            Json::Value result;
+            result["body"] = request.body;
+            result["path"] = request.path;
+            return disk::JsonResponse(result);
+        });
     std::signal(SIGINT, Signal);
     std::signal(SIGTERM, Signal);
     std::atomic<bool> finished{false};

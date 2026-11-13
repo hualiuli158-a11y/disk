@@ -43,6 +43,8 @@ Config Config::Environment()
     c.storageServerName = Env("STORAGE_TLS_SERVER_NAME");
     c.corsOrigin = Env("CORS_ALLOWED_ORIGIN");
     c.maxUploadBytes = Number("UPLOAD_MAX_BYTES", c.maxUploadBytes, 1ULL << 30);
+    c.maxConcurrentUploads = Number("UPLOAD_CONCURRENT_GLOBAL", 4, 64);
+    c.uploadIdleTimeout = std::chrono::seconds(Number("UPLOAD_IDLE_TIMEOUT_SECONDS", 30, 86400));
     c.requestTimeout = std::chrono::seconds(Number("REQUEST_TIMEOUT_SECONDS", 1800, 86400));
     if (c.databaseUser.empty() || c.jwtSecret.size() < 32 || c.jwtIssuer.empty())
         throw std::runtime_error("Set DB_USER, JWT_ISSUER and JWT_SECRET (at least 32 bytes)");

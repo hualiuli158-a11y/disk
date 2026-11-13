@@ -62,13 +62,17 @@ src/
 | DELETE | /api/trash/:id | 永久删除、逻辑配额返还和无引用对象清理 |
 | GET | /livez、/readyz | 存活及数据库、存储可用性检查 |
 
-上传使用四个 64 KiB HTTP 正文块的队列，队列满时暂停 Connection 读取。下载按写完成回调继续读取下一块。每个用户最多同时接受两项上传，传输线程池和业务线程池分别运行。请求断开会终止队列等待并取消存储 RPC。
+上传使用四个 64 KiB HTTP 正文块的队列，队列满时暂停 Connection 读取。下载按写完成回调继续读取下一块。普通业务、上传、下载各有独立的四线程工作池，健康检查使用独立的一线程工作池。请求断开会终止队列等待并取消存储 RPC。
+
+每用户最多同时接受两项上传，全局默认最多四项，包含已准入的等待任务和执行中任务，达到上限返回 429。UPLOAD_CONCURRENT_GLOBAL 可设置全局上限，范围为 1 至 64。UPLOAD_IDLE_TIMEOUT_SECONDS 默认 30 秒，正文持续空闲时返回 408 并取消上传。服务端队列满造成的背压暂停会延后空闲判断，整体请求仍受 REQUEST_TIMEOUT_SECONDS 限制。
+
+前端上传会发送 X-Upload-Size。API 在请求头阶段验证声明大小，解析出 multipart 目录字段后检查目录归属与声明大小对应的剩余配额，再启动对象存储写入。最终元数据事务再次检查目录和配额，协调预检查之后发生的并发修改。
 
 第二优先级已实现重命名、移动、名称搜索和回收站业务。真实 Chrome integration 回归已覆盖注册登录、目录创建、上传下载、重命名冲突、文件和目录移动、名称搜索、回收站恢复及递归永久删除。后续里程碑为第三优先级（后台周期性孤儿对象回收、回收站自动过期清理及失败重试）与第四优先级（在线文本编辑、`If-Match` 乐观锁冲突检查、历史版本列表及版本恢复）。分片上传、进度查询和断点续传属于后续扩展。
 
 ## 构建
 
-需要 C++20、CMake 3.24、Python 3、Boost 1.88 以上、gRPC/Protobuf 和 OpenSSL。将 MOUDU_ASIO_ROOT 指向 MouduAsio 源码目录，默认使用相邻的 ../MouduAsio。JsonCpp、BusinessPool 和 Boost.Charconv 复用该源码树中的实现。
+需要 C++20、CMake 3.24、Python 3、Boost 1.88 以上、gRPC/Protobuf 和 OpenSSL。CMP0144 使用策略存在性检查，已用独立的 CMake 3.24.3 验证配置阶段。将 MOUDU_ASIO_ROOT 指向 MouduAsio 源码目录，默认使用相邻的 ../MouduAsio。JsonCpp、BusinessPool 和 Boost.Charconv 复用该源码树中的实现。
 
 ```powershell
 ./scripts/build.ps1 -Test
@@ -108,9 +112,9 @@ npm run dev:api
 
 ## 验证
 
-CTest 当前注册一个传输用例，覆盖连接复用、定长/分块/并发上传、32 MiB 下载、非法 HTTP、认证前置，以及中断后的取消与资源释放。Windows 下通过 ENVIRONMENT_MODIFICATION 将编译器目录前置到测试进程的 PATH，并继承运行 CTest 时的其余 PATH。
+CTest 当前注册一个传输用例，覆盖连接复用、定长/分块/并发上传、32 MiB 下载、非法 HTTP、认证前置，以及中断后的取消与资源释放。回归还验证四项慢上传期间下载可用、普通业务线程占满时健康检查可用、全局上传上限、空闲超时和背压暂停。Windows 下通过 ENVIRONMENT_MODIFICATION 将编译器目录前置到测试进程的 PATH，并继承运行 CTest 时的其余 PATH。
 
-业务接口通过下述 Python 命令验收，覆盖账号、目录、上传下载、重命名、移动、搜索、回收站、权限和并发规则。在已迁移的独立测试数据库和运行中的存储节点上，设置 DB_*、JWT_*、STORAGE_ADDRESS、PORT 后执行。该测试创建随机名称的用户和测试文件，使用专用测试库与对象目录。
+业务接口通过下述 Python 命令验收，覆盖账号、目录、上传下载、重命名、移动、搜索、回收站、权限和并发规则，同时验证文件正文传完前拒绝无效目录、非法声明大小及超额请求。在已迁移的独立测试数据库和运行中的存储节点上，设置 DB_*、JWT_*、STORAGE_ADDRESS、PORT 后执行。该测试创建随机名称的用户和测试文件，使用专用测试库与对象目录。
 
 设置 MYSQL_CLIENT 为 mysql 客户端路径时，测试还会直接核验去重记录、bcrypt 跨库兼容以及并发配额，需安装 Python bcrypt 包。
 

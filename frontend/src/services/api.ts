@@ -131,6 +131,7 @@ function uploadWithProgress(folderId: number, file: File, signal: AbortSignal, o
     xhr.open('POST', `${API_BASE}/api/files`);
     const token = getToken();
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('X-Upload-Size', String(file.size));
     xhr.upload.onprogress = event => {
       if (event.lengthComputable && event.total > 0) onProgress(Math.min(100, Math.round(event.loaded / event.total * 100)));
     };
@@ -215,7 +216,9 @@ const backendApi = {
     const body = new FormData();
     body.set('folder_id', String(folderId));
     body.set('file', file);
-    return request<{ id: number; name: string; folder_id: number }>('/api/files', { method: 'POST', body, signal });
+    return request<{ id: number; name: string; folder_id: number }>('/api/files', {
+      method: 'POST', headers: { 'X-Upload-Size': String(file.size) }, body, signal,
+    });
   },
   uploadWithProgress,
   download: (id: number, signal?: AbortSignal) => request<Blob>(`/api/files/${id}/download`, { signal }, 'blob'),

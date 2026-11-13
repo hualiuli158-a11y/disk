@@ -9,6 +9,7 @@ class FileRepository
 {
   public:
     explicit FileRepository(Database &database) : database_(database) {}
+    void CheckUpload(std::uint64_t user, std::uint64_t folder, std::optional<std::uint64_t> size);
     UploadCommit CreateUploadedFile(const UploadedObject &object);
     std::optional<StoredFile> FindForDownload(std::uint64_t user, std::uint64_t file);
     void Rename(std::uint64_t user, std::uint64_t file, const std::string &name);

@@ -19,6 +19,7 @@ inline std::string JsonText(const Json::Value &value)
 }
 Json::Value ParseJson(const std::string &body);
 std::uint64_t Id(const std::string &value);
+std::uint64_t ParseUploadSize(const std::string &value);
 std::string NormalizeName(const std::string &name);
 std::string Trim(const std::string &text);
 std::size_t Utf8Length(const std::string &text);

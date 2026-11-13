@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 namespace disk
@@ -20,6 +21,8 @@ struct Config
     std::string storageCA, storageCertificate, storageKey, storageServerName;
     std::string corsOrigin;
     std::uint64_t maxUploadBytes = 1ULL << 30;
+    std::size_t maxConcurrentUploads = 4;
+    std::chrono::seconds uploadIdleTimeout{30};
     std::chrono::seconds requestTimeout{1800};
     static Config Environment();
 };
