@@ -11,9 +11,7 @@ void UserHandler::Profile(gin::Context& c)
         {"id", profile.id},
         {"username", profile.username},
         {"used_quota", profile.usedQuota},
-        {"quota_limit", profile.quotaLimit},
-        {"created_at", profile.createdAt},
-        {"updated_at", profile.updatedAt}
+        {"quota_limit", profile.quotaLimit}
     });
 }
 

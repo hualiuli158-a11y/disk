@@ -23,7 +23,7 @@ namespace gin {
 class Context;
 using HandlerFunc = std::function<void(Context&)>;
 using HandlersChain = std::vector<HandlerFunc>;
-using H = nlohmann::json::object_t;
+using H = nlohmann::json;
 
 struct Param;
 using Params = std::vector<Param>;

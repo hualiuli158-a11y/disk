@@ -20,6 +20,8 @@ public:
     explicit Engine(HandlersChain middleware = {});
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
+    Engine(Engine&& other) noexcept;
+    Engine& operator=(Engine&& other) noexcept;
 
     disk::Response Dispatch(const disk::Request& request,
                             std::shared_ptr<disk::BodyPipe> pipe = nullptr,

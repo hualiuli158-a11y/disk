@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "common.h"
+#include <boost/system/system_error.hpp>
 #include <boost/mysql/common_server_errc.hpp>
 #include <iostream>
 
@@ -8,6 +9,24 @@ namespace gin {
 Engine::Engine(HandlersChain middleware) : RouterGroup(this, "/")
 {
     Use(std::move(middleware));
+}
+
+Engine::Engine(Engine&& other) noexcept
+    : RouterGroup(this, other.BasePath(), std::move(other._handlers)),
+      _router(std::move(other._router)),
+      _no_route(std::move(other._no_route))
+{
+}
+
+Engine& Engine::operator=(Engine&& other) noexcept
+{
+    if (this != &other)
+    {
+        _handlers = std::move(other._handlers);
+        _router = std::move(other._router);
+        _no_route = std::move(other._no_route);
+    }
+    return *this;
 }
 
 Engine New() { return Engine{}; }
