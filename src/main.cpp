@@ -1,7 +1,15 @@
-#include "application.h"
+#include "config.h"
+#include "database.h"
+#include "storage.h"
+#include "auth.h"
+#include "router/router.h"
 #include "http_server.h"
+
 #include <csignal>
 #include <iostream>
+#include <thread>
+#include <atomic>
+
 namespace
 {
 volatile std::sig_atomic_t interrupted = 0;
@@ -10,6 +18,7 @@ void Signal(int)
     interrupted = 1;
 }
 } // namespace
+
 int main()
 {
     try
@@ -19,15 +28,44 @@ int main()
         database.Check();
         disk::GrpcStorage storage(config);
         storage.Check();
-        disk::Application application(config, database, storage);
-        disk::HttpServer server(config, application.Authentication(),
+
+        disk::Auth auth(config);
+
+        disk::UserRepository usersRepository(database);
+        disk::FolderRepository foldersRepository(database);
+        disk::FileRepository filesRepository(database);
+        disk::SearchRepository searchRepository(database);
+        disk::TrashRepository trashRepository(database);
+
+        disk::AccountService accounts(usersRepository, auth);
+        disk::FolderService folders(foldersRepository);
+        disk::FileService files(filesRepository, storage);
+        disk::SearchService search(searchRepository);
+        disk::TrashService trash(trashRepository, storage);
+
+        disk::AppContext appContext{
+            database,
+            storage,
+            auth,
+            accounts,
+            folders,
+            files,
+            search,
+            trash
+        };
+
+        // 使用 Gin 风格初始化路由器与路由树
+        auto router = disk::SetupRouter(appContext);
+
+        disk::HttpServer server(config, auth,
                                 [&](const auto &request, const auto &pipe, const auto &cancel)
                                 {
-                                    return pipe ? application.Upload(request, pipe, cancel)
-                                                : application.Handle(request, cancel);
+                                    return router->Dispatch(request, pipe, cancel);
                                 });
+
         std::signal(SIGINT, Signal);
         std::signal(SIGTERM, Signal);
+
         std::atomic<bool> finished{false};
         std::thread signals(
             [&]
@@ -37,7 +75,9 @@ int main()
                 if (interrupted)
                     server.Stop();
             });
-        std::cout << "Disk C++ API listening on " << config.listen << ':' << server.Port() << std::endl;
+
+        std::cout << "Disk Gin C++ API listening on " << config.listen << ':' << server.Port() << std::endl;
+
         try
         {
             server.Start();
@@ -48,6 +88,7 @@ int main()
             signals.join();
             throw;
         }
+
         finished = true;
         signals.join();
     }

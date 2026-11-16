@@ -68,8 +68,12 @@ add_library(disk_core STATIC
     src/services/account_service.cpp src/services/folder_service.cpp src/services/file_service.cpp
     src/repositories/repository_support.cpp src/repositories/search_repository.cpp src/repositories/trash_repository.cpp
     src/services/search_service.cpp src/services/trash_service.cpp
+    src/gin/tree.cpp src/gin/context.cpp src/gin/routergroup.cpp src/gin/engine.cpp
+    src/handlers/auth_handler.cpp src/handlers/user_handler.cpp src/handlers/folder_handler.cpp
+    src/handlers/file_handler.cpp src/handlers/search_handler.cpp src/handlers/trash_handler.cpp
+    src/router/router.cpp
     src/http_server.cpp "${MOUDU_ASIO_ROOT}/backend/src/common/BusinessPool.cpp")
-target_include_directories(disk_core PUBLIC src "${MOUDU_ASIO_ROOT}/backend/src" "${JWT_SOURCE_DIR}/include")
+target_include_directories(disk_core PUBLIC src "${CMAKE_CURRENT_SOURCE_DIR}/third_party" "${MOUDU_ASIO_ROOT}/backend/src" "${JWT_SOURCE_DIR}/include")
 target_link_libraries(disk_core PUBLIC moudu::net JsonCpp::JsonCpp disk_charconv disk_proto disk_botan disk_multipart OpenSSL::SSL OpenSSL::Crypto)
 target_compile_definitions(disk_core PUBLIC BOOST_ASIO_NO_DEPRECATED)
 if(MINGW)
@@ -82,6 +86,10 @@ if(TARGET disk_grpc_link_archive)
 endif()
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(gin_router_test tests/gin_router_test.cpp)
+    target_link_libraries(gin_router_test PRIVATE disk_core)
+    add_test(NAME gin_router COMMAND gin_router_test)
+
     add_executable(disk_transport_test tests/transport_test.cpp)
     target_link_libraries(disk_transport_test PRIVATE disk_core)
     if(TARGET disk_grpc_link_archive)
