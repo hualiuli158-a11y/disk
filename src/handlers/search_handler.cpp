@@ -5,7 +5,7 @@ namespace disk::handler {
 
 void SearchHandler::Search(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
 
     SearchQuery query;
     query.text = c.DefaultQuery("q", "");

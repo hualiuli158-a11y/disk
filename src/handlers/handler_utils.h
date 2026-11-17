@@ -8,6 +8,14 @@
 
 namespace disk::handler {
 
+inline std::uint64_t UserID(const gin::Context& context)
+{
+    const auto* value = context.Get("user_id");
+    const auto* user = value ? std::any_cast<std::uint64_t>(value) : nullptr;
+    return user ? *user : 0;
+}
+
+
 inline nlohmann::json FolderToJson(const Folder& folder)
 {
     nlohmann::json value;

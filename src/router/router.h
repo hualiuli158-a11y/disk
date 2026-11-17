@@ -26,6 +26,6 @@ struct AppContext
     TrashService& trash;
 };
 
-std::unique_ptr<gin::Engine> SetupRouter(AppContext& app);
+std::unique_ptr<gin::Engine> SetupRouter(AppContext& app, const Config& config);
 
 } // namespace disk

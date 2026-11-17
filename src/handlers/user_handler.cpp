@@ -1,10 +1,11 @@
 #include "user_handler.h"
+#include "handler_utils.h"
 
 namespace disk::handler {
 
 void UserHandler::Profile(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
     const auto profile = accounts_.Profile(userId);
 
     c.JSON(200, gin::H{
@@ -17,7 +18,7 @@ void UserHandler::Profile(gin::Context& c)
 
 void UserHandler::Quota(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
     const auto result = accounts_.GetQuota(userId);
 
     c.JSON(200, gin::H{

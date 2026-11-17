@@ -8,6 +8,11 @@ namespace disk::middleware {
 inline gin::HandlerFunc JWT(const Auth& auth)
 {
     return [&auth](gin::Context& c) {
+        if (c.Get("user_id"))
+        {
+            c.Next();
+            return;
+        }
         std::string authorization = c.GetHeader("Authorization");
         if (authorization.empty())
         {
@@ -19,16 +24,18 @@ inline gin::HandlerFunc JWT(const Auth& auth)
             return;
         }
 
+        std::uint64_t userId;
         try
         {
-            std::uint64_t userId = auth.Verify(authorization);
-            c.Set("user_id", userId);
-            c.Next();
+            userId = auth.Verify(authorization);
         }
         catch (const std::exception&)
         {
             c.AbortWithStatusJSON(401, gin::H{{"error", "Invalid or expired token"}});
+            return;
         }
+        c.Set("user_id", userId);
+        c.Next();
     };
 }
 

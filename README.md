@@ -1,14 +1,22 @@
 # Disk C++
 
-基于 MouduAsio 的网盘 C++ 后端。浏览器 HTTP 入口使用自有 TcpServer，HTTP 解析使用 Boost.Beast，元数据使用 MySQL，文件内容通过 gRPC 访问 storage/ 中的 C++ 存储节点。
+使用独立 gin_cpp 框架的网盘 C++ 后端。业务通过 `gin::Context`、路由分组和中间件处理 HTTP 请求，由 `Engine::Run()` 管理监听、连接、HTTP 解析及流式传输。元数据使用 MySQL，文件内容通过 gRPC 访问 storage/ 中的 C++ 存储节点。
+
+```cpp
+auto router = disk::SetupRouter(appContext, config);
+router->Run(config.listen + ":" + std::to_string(config.port));
+```
+
+gin_cpp 内部使用 MouduAsio 和 Boost.Beast。HTTP 流式上传通过 `Context::BodyStream()` 读取，下载通过 `DataFromReader()` 发送，断连取消通过 `Context::Cancellation()` 传递给存储 RPC。
 
 ## 代码组织
 
 ```text
 src/
-  application.*                 HTTP 路由、请求转换、JSON 响应、服务组装
-  http_server.*                 连接会话、Beast 解析、背压和线程池
-  http_types.*                  HTTP 请求与响应结构、JSON 响应编码
+  main.cpp                      业务依赖组装、框架启动和停止
+  router/                       gin_cpp 路由注册及执行配置
+  middleware/                   JWT、业务异常映射、上传限额
+  handlers/                     HTTP 参数转换与业务响应
   services/
     account_service.*           账号校验、密码与令牌、用户信息和配额
     folder_service.*            目录业务、重命名与移动防循环校验、列表查询
@@ -30,7 +38,7 @@ src/
   common.*                      输入校验、JSON 解析和字符处理
 ```
 
-请求经 Application 进入 AccountService、FolderService、FileService、SearchService 或 TrashService。业务服务通过对应 Repository 访问 MySQL，Repository 返回业务数据结构，再由 Application 编码为 HTTP 响应。FileService 与 TrashService 通过 ObjectStorage 完成文件内容读写和物理对象清理。
+请求经 gin_cpp 路由和 Handler 进入 AccountService、FolderService、FileService、SearchService 或 TrashService。业务服务通过对应 Repository 访问 MySQL，Repository 返回业务数据结构，再由 Handler 编码为 HTTP 响应。FileService 与 TrashService 通过 ObjectStorage 完成文件内容读写和物理对象清理。
 
 注册与根目录创建在 UserRepository 的同一个事务中执行。上传的配额检查、内容去重、文件和初始版本记录、容量更新在 FileRepository 的同一个事务中执行。候选对象清理通过事务内回调持有存储 Key 的锁，协调数据库提交结果与对象删除。
 
@@ -72,13 +80,13 @@ src/
 
 ## 构建
 
-需要 C++20、CMake 3.24、Python 3、Boost 1.88 以上、gRPC/Protobuf 和 OpenSSL。CMP0144 使用策略存在性检查，已用独立的 CMake 3.24.3 验证配置阶段。将 MOUDU_ASIO_ROOT 指向 MouduAsio 源码目录，默认使用相邻的 ../MouduAsio。JsonCpp、BusinessPool 和 Boost.Charconv 复用该源码树中的实现。
+需要 C++20、CMake 3.24、Python 3、Boost 1.88 以上、gRPC/Protobuf 和 OpenSSL。CMP0144 使用策略存在性检查，已用独立的 CMake 3.24.3 验证配置阶段。将 GIN_CPP_ROOT 指向 gin_cpp 源码目录。gin_cpp 管理网络后端依赖，Windows 构建使用 MouduAsio。JsonCpp、Boost.Charconv 和 gRPC CMake 辅助仍复用 MOUDU_ASIO_ROOT 指向的源码树，默认使用相邻的 ../MouduAsio。
 
 ```powershell
 ./scripts/build.ps1 -Test
 ```
 
-脚本默认使用与本机 gRPC 匹配的 E:/mingw64 工具链，并设置项目内的临时目录。其他位置的工具链可以通过 -CompilerRoot 指定。通用 CMake 构建可以使用 -DMOUDU_ASIO_ROOT、-DGRPC_ROOT 和 -DBoost_ROOT 指定依赖。
+脚本默认使用与本机 gRPC 匹配的 E:/mingw64 工具链，并设置项目内的临时目录。其他位置的工具链可以通过 -CompilerRoot 指定。通用 CMake 构建可以使用 -DGIN_CPP_ROOT、-DMOUDU_ASIO_ROOT、-DGRPC_ROOT 和 -DBoost_ROOT 指定依赖。
 
 Windows 默认检测本机 E:/Libraries 下的 Boost 和 gRPC，也可以设置 Boost_ROOT 与 GRPC_ROOT。本机较大的 MinGW gRPC Debug 归档会在 build 内生成去调试信息副本以完成链接。
 

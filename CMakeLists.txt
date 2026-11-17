@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16 AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 17)
     add_compile_definitions(_GLIBCXX_ATOMIC_WORD_BUILTINS=1)
 endif()
-set(MOUDU_ASIO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../MouduAsio" CACHE PATH "MouduAsio source checkout")
+set(GIN_CPP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../gin_ cpp" CACHE PATH "gin_cpp source checkout")
 set(GRPC_ROOT "" CACHE PATH "gRPC installation prefix")
 if(WIN32 AND NOT GRPC_ROOT AND EXISTS "E:/Libraries/grpc-mingw-debug")
     set(GRPC_ROOT "E:/Libraries/grpc-mingw-debug")
@@ -46,7 +46,10 @@ if(MINGW)
         set_property(TARGET gRPC::grpc PROPERTY IMPORTED_LOCATION_DEBUG "${grpc_link_archive}")
     endif()
 endif()
-add_subdirectory("${MOUDU_ASIO_ROOT}/net" moudu-net)
+set(GIN_USE_ASIO ON CACHE BOOL "" FORCE)
+set(GIN_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GIN_BUILD_MOUDU_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory("${GIN_CPP_ROOT}" gin-cpp)
 set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
 set(JSONCPP_WITH_POST_BUILD_UNITTEST OFF CACHE BOOL "" FORCE)
 add_subdirectory("${MOUDU_ASIO_ROOT}/backend/third_party/jsoncpp" jsoncpp EXCLUDE_FROM_ALL)
@@ -62,19 +65,17 @@ target_grpc_proto(disk_proto "${CMAKE_CURRENT_SOURCE_DIR}/storage/proto/object_s
 target_include_directories(disk_proto PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated/disk_proto")
 target_link_libraries(disk_proto PUBLIC gRPC::grpc++ protobuf::libprotobuf)
 add_library(disk_core STATIC
-    src/config.cpp src/database.cpp src/auth.cpp src/storage.cpp src/application.cpp
-    src/common.cpp src/http_types.cpp
+    src/config.cpp src/database.cpp src/auth.cpp src/storage.cpp
+    src/common.cpp
     src/repositories/user_repository.cpp src/repositories/folder_repository.cpp src/repositories/file_repository.cpp
     src/services/account_service.cpp src/services/folder_service.cpp src/services/file_service.cpp
     src/repositories/repository_support.cpp src/repositories/search_repository.cpp src/repositories/trash_repository.cpp
     src/services/search_service.cpp src/services/trash_service.cpp
-    src/gin/tree.cpp src/gin/context.cpp src/gin/routergroup.cpp src/gin/engine.cpp
     src/handlers/auth_handler.cpp src/handlers/user_handler.cpp src/handlers/folder_handler.cpp
     src/handlers/file_handler.cpp src/handlers/search_handler.cpp src/handlers/trash_handler.cpp
-    src/router/router.cpp
-    src/http_server.cpp "${MOUDU_ASIO_ROOT}/backend/src/common/BusinessPool.cpp")
+    src/router/router.cpp)
 target_include_directories(disk_core PUBLIC src "${CMAKE_CURRENT_SOURCE_DIR}/third_party" "${MOUDU_ASIO_ROOT}/backend/src" "${JWT_SOURCE_DIR}/include")
-target_link_libraries(disk_core PUBLIC moudu::net JsonCpp::JsonCpp disk_charconv disk_proto disk_botan disk_multipart OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(disk_core PUBLIC gin::gin JsonCpp::JsonCpp disk_charconv disk_proto disk_botan disk_multipart OpenSSL::SSL OpenSSL::Crypto)
 target_compile_definitions(disk_core PUBLIC BOOST_ASIO_NO_DEPRECATED)
 if(MINGW)
     target_compile_options(disk_core PRIVATE -Wa,-mbig-obj)
@@ -98,7 +99,7 @@ if(BUILD_TESTING)
     add_test(NAME disk_transport COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/transport_test.py" "$<TARGET_FILE:disk_transport_test>")
     if(WIN32 AND CMAKE_CXX_COMPILER)
         get_filename_component(_compiler_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
-        set_property(TEST disk_transport APPEND PROPERTY
+        set_property(TEST gin_router disk_transport APPEND PROPERTY
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_compiler_bin_dir}")
     endif()
     set_tests_properties(disk_transport PROPERTIES TIMEOUT 120)

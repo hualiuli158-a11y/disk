@@ -5,77 +5,6 @@
 #include <sstream>
 namespace disk
 {
-void Cancellation::Cancel()
-{
-    const std::lock_guard lock(mutex_);
-    cancelled_ = true;
-    if (auto context = context_.lock())
-        context->TryCancel();
-}
-void Cancellation::Attach(const std::shared_ptr<grpc::ClientContext> &context)
-{
-    const std::lock_guard lock(mutex_);
-    context_ = context;
-    if (cancelled_)
-        context->TryCancel();
-}
-bool Cancellation::Cancelled() const
-{
-    const std::lock_guard lock(mutex_);
-    return cancelled_;
-}
-bool BodyPipe::Push(std::string block)
-{
-    const std::lock_guard lock(mutex_);
-    if (aborted_ || finished_ || blocks_.size() >= Capacity)
-        return false;
-    blocks_.push_back(std::move(block));
-    ready_.notify_one();
-    return true;
-}
-bool BodyPipe::Pop(std::string &block)
-{
-    std::unique_lock lock(mutex_);
-    ready_.wait(lock,
-                [this]
-                {
-                    return aborted_ || finished_ || !blocks_.empty();
-                });
-    if (aborted_)
-        throw Error(499, "Upload cancelled");
-    if (blocks_.empty())
-        return false;
-    block = std::move(blocks_.front());
-    blocks_.pop_front();
-    const auto callback = consumed_;
-    lock.unlock();
-    if (callback)
-        callback();
-    return true;
-}
-bool BodyPipe::Full() const
-{
-    const std::lock_guard lock(mutex_);
-    return blocks_.size() >= Capacity;
-}
-void BodyPipe::Finish()
-{
-    const std::lock_guard lock(mutex_);
-    finished_ = true;
-    ready_.notify_all();
-}
-void BodyPipe::Abort()
-{
-    const std::lock_guard lock(mutex_);
-    aborted_ = true;
-    blocks_.clear();
-    ready_.notify_all();
-}
-void BodyPipe::OnConsumed(std::function<void()> callback)
-{
-    const std::lock_guard lock(mutex_);
-    consumed_ = std::move(callback);
-}
 namespace
 {
 std::string ReadCertificate(const std::string &path)
@@ -103,7 +32,10 @@ std::shared_ptr<grpc::ClientContext> Context(const Config &config,
 {
     auto context = std::make_shared<grpc::ClientContext>();
     context->set_deadline(std::chrono::system_clock::now() + config.requestTimeout);
-    cancel->Attach(context);
+    const std::weak_ptr<grpc::ClientContext> weak = context;
+    cancel->OnCancel([weak] {
+        if (const auto active = weak.lock()) active->TryCancel();
+    });
     return context;
 }
 class GrpcReader final : public ObjectReader

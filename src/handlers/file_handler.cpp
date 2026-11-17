@@ -8,14 +8,14 @@ namespace disk::handler {
 
 void FileHandler::Upload(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
     const auto contentType = c.GetHeader("content-type");
     if (contentType.rfind("multipart/form-data", 0) != 0)
     {
         throw Error(400, "Expected multipart/form-data");
     }
 
-    const auto& pipe = c.BodyPipe();
+    const auto& pipe = c.BodyStream();
     if (!pipe)
     {
         throw Error(400, "Missing upload pipe");
@@ -51,8 +51,8 @@ void FileHandler::Upload(gin::Context& c)
 
 void FileHandler::Download(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto fileId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto fileId = Id(c.Param("id"));
 
     auto download = files_.Download(userId, fileId, c.Cancellation());
 
@@ -71,13 +71,13 @@ void FileHandler::Download(gin::Context& c)
     c.Header("Content-Disposition", "attachment; filename*=UTF-8''" + escaped);
 
     c.Status(200);
-    c.SetReader(std::move(download.reader));
+    c.DataFromReader(200, "application/octet-stream", std::move(download.reader));
 }
 
 void FileHandler::Rename(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto fileId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto fileId = Id(c.Param("id"));
 
     nlohmann::json body;
     if (!c.ShouldBindJSON(body) || !body.contains("name") || !body["name"].is_string())
@@ -96,8 +96,8 @@ void FileHandler::Rename(gin::Context& c)
 
 void FileHandler::Move(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto fileId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto fileId = Id(c.Param("id"));
 
     nlohmann::json body;
     if (!c.ShouldBindJSON(body) || !body.contains("folder_id") || !body["folder_id"].is_number_unsigned())
@@ -116,8 +116,8 @@ void FileHandler::Move(gin::Context& c)
 
 void FileHandler::Delete(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto fileId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto fileId = Id(c.Param("id"));
 
     trash_.DeleteFile(userId, fileId);
     c.Status(204);

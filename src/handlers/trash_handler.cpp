@@ -5,7 +5,7 @@ namespace disk::handler {
 
 void TrashHandler::List(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
     const auto page = c.DefaultQuery("page", "1");
     const auto pageSize = c.DefaultQuery("page_size", "50");
 
@@ -38,8 +38,8 @@ void TrashHandler::List(gin::Context& c)
 
 void TrashHandler::Restore(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto id = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto id = Id(c.Param("id"));
 
     trash_.Restore(userId, id);
     c.Status(204);
@@ -47,8 +47,8 @@ void TrashHandler::Restore(gin::Context& c)
 
 void TrashHandler::PermanentlyDelete(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto id = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto id = Id(c.Param("id"));
 
     trash_.PermanentlyDelete(userId, id);
     c.Status(204);

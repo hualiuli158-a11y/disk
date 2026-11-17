@@ -1,5 +1,6 @@
 #pragma once
 #include "config.h"
+#include "gin/gin.h"
 #include "object_storage.grpc.pb.h"
 #include <condition_variable>
 #include <deque>
@@ -9,44 +10,9 @@
 #include <mutex>
 namespace disk
 {
-class Cancellation
-{
-  public:
-    void Cancel();
-    void Attach(const std::shared_ptr<grpc::ClientContext> &context);
-    bool Cancelled() const;
-
-  private:
-    mutable std::mutex mutex_;
-    bool cancelled_ = false;
-    std::weak_ptr<grpc::ClientContext> context_;
-};
-// Single producer and consumer. The HTTP loop pauses at Capacity blocks.
-class BodyPipe
-{
-  public:
-    static constexpr std::size_t Capacity = 4;
-    bool Push(std::string block);
-    bool Pop(std::string &block);
-    bool Full() const;
-    void Finish();
-    void Abort();
-    void OnConsumed(std::function<void()> callback);
-
-  private:
-    mutable std::mutex mutex_;
-    std::condition_variable ready_;
-    std::deque<std::string> blocks_;
-    bool finished_ = false, aborted_ = false;
-    std::function<void()> consumed_;
-};
-class ObjectReader
-{
-  public:
-    virtual ~ObjectReader() = default;
-    virtual std::uint64_t Size() const = 0;
-    virtual std::string Read() = 0;
-};
+using Cancellation = gin::Cancellation;
+using BodyPipe = gin::BodyPipe;
+using ObjectReader = gin::ContentReader;
 class ObjectStorage
 {
   public:

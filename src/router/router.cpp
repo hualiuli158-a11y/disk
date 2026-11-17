@@ -1,5 +1,7 @@
 #include "router.h"
 #include "middleware/jwt.h"
+#include "middleware/errors.h"
+#include "middleware/upload_limits.h"
 #include "handlers/auth_handler.h"
 #include "handlers/user_handler.h"
 #include "handlers/folder_handler.h"
@@ -9,9 +11,25 @@
 
 namespace disk {
 
-std::unique_ptr<gin::Engine> SetupRouter(AppContext& app)
+std::unique_ptr<gin::Engine> SetupRouter(AppContext& app, const Config& config)
 {
-    auto engine = std::make_unique<gin::Engine>(gin::Default());
+    auto engine = std::make_unique<gin::Engine>();
+    engine->Use(gin::Logger(), middleware::Errors());
+    engine->SetThreadCount(config.ioThreads);
+    gin::Limits limits;
+    limits.max_body_bytes = config.maxUploadBytes + 65536;
+    engine->SetLimits(limits);
+    gin::ServerOptions options;
+    options.request_timeout = config.requestTimeout;
+    options.body_idle_timeout = config.uploadIdleTimeout;
+    options.max_buffered_body_bytes = 65536;
+    options.cors_origin = config.corsOrigin;
+    options.cors_allowed_headers = "Authorization,Content-Type,If-Match,X-Upload-Size";
+    options.cors_exposed_headers = "ETag,X-File-SHA256,Last-Modified,Content-Disposition";
+    options.response_headers = {{"X-Content-Type-Options", "nosniff"}, {"Cache-Control", "no-store"}};
+    options.worker_pools["uploads"] = {4, 64};
+    options.worker_pools["health"] = {1, 4};
+    engine->SetServerOptions(std::move(options));
 
     auto authHandler = std::make_shared<handler::AuthHandler>(app.accounts);
     auto userHandler = std::make_shared<handler::UserHandler>(app.accounts);
@@ -122,6 +140,16 @@ std::unique_ptr<gin::Engine> SetupRouter(AppContext& app)
         });
     }
 
+    engine->SetRouteOptions("POST", "/api/files", {
+        true, "uploads", config.maxConcurrentUploads,
+        {middleware::Errors(), middleware::JWT(app.auth),
+         middleware::UploadLimits(config.maxUploadBytes)}
+    });
+    engine->SetRouteOptions("GET", "/livez", {false, "health"});
+    engine->SetRouteOptions("GET", "/readyz", {false, "health"});
+    engine->NoRoute([](gin::Context& context) {
+        context.JSON(404, gin::H{{"error", "Endpoint not implemented"}});
+    });
     return engine;
 }
 

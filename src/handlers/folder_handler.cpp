@@ -5,14 +5,14 @@ namespace disk::handler {
 
 void FolderHandler::Root(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
     const auto listing = folders_.Root(userId);
-    c.JSON(200, FolderListingToJson(listing, "parent"));
+    c.JSON(200, FolderListingToJson(listing, "root"));
 }
 
 void FolderHandler::Create(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
+    const auto userId = UserID(c);
     nlohmann::json body;
     if (!c.ShouldBindJSON(body) || !body.contains("name") || !body.contains("parent_id") ||
         !body["name"].is_string() || !body["parent_id"].is_number_unsigned())
@@ -29,12 +29,12 @@ void FolderHandler::Create(gin::Context& c)
 
 void FolderHandler::Contents(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto folderId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto folderId = Id(c.Param("id"));
 
     ContentsQuery query{
         c.DefaultQuery("page", "1"),
-        c.DefaultQuery("page_size", "50"),
+        c.DefaultQuery("page_size", "100"),
         c.DefaultQuery("sort", "name"),
         c.DefaultQuery("order", "asc")
     };
@@ -45,17 +45,17 @@ void FolderHandler::Contents(gin::Context& c)
 
 void FolderHandler::Children(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto folderId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto folderId = Id(c.Param("id"));
 
     const auto listing = folders_.Children(userId, folderId);
-    c.JSON(200, FolderListingToJson(listing, "parent"));
+    c.JSON(200, FolderListingToJson(listing, "folder"));
 }
 
 void FolderHandler::Rename(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto folderId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto folderId = Id(c.Param("id"));
 
     nlohmann::json body;
     if (!c.ShouldBindJSON(body) || !body.contains("name") || !body["name"].is_string())
@@ -74,8 +74,8 @@ void FolderHandler::Rename(gin::Context& c)
 
 void FolderHandler::Move(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto folderId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto folderId = Id(c.Param("id"));
 
     nlohmann::json body;
     if (!c.ShouldBindJSON(body) || !body.contains("parent_id") || !body["parent_id"].is_number_unsigned())
@@ -94,8 +94,8 @@ void FolderHandler::Move(gin::Context& c)
 
 void FolderHandler::Delete(gin::Context& c)
 {
-    const auto userId = c.GetUserID();
-    const auto folderId = c.ParamUInt64("id");
+    const auto userId = UserID(c);
+    const auto folderId = Id(c.Param("id"));
 
     trash_.DeleteFolder(userId, folderId);
     c.Status(204);

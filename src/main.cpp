@@ -3,7 +3,6 @@
 #include "storage.h"
 #include "auth.h"
 #include "router/router.h"
-#include "http_server.h"
 
 #include <csignal>
 #include <iostream>
@@ -55,13 +54,7 @@ int main()
         };
 
         // 使用 Gin 风格初始化路由器与路由树
-        auto router = disk::SetupRouter(appContext);
-
-        disk::HttpServer server(config, auth,
-                                [&](const auto &request, const auto &pipe, const auto &cancel)
-                                {
-                                    return router->Dispatch(request, pipe, cancel);
-                                });
+        auto router = disk::SetupRouter(appContext, config);
 
         std::signal(SIGINT, Signal);
         std::signal(SIGTERM, Signal);
@@ -73,14 +66,14 @@ int main()
                 while (!finished && !interrupted)
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 if (interrupted)
-                    server.Stop();
+                    router->Stop();
             });
 
-        std::cout << "Disk Gin C++ API listening on " << config.listen << ':' << server.Port() << std::endl;
+        std::cout << "Disk Gin C++ API listening on " << config.listen << ':' << config.port << std::endl;
 
         try
         {
-            server.Start();
+            router->Run(config.listen + ":" + std::to_string(config.port));
         }
         catch (...)
         {
