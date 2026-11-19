@@ -1,13 +1,11 @@
 """Business regressions for rename, move, search, trash and shared object deletion."""
 import concurrent.futures
 import json
-import os
-from pathlib import Path
 import uuid
 from urllib.parse import urlencode
 
 
-def run(request, json_request, upload, sql, token, other, user, root):
+def run(request, json_request, upload, sql, token, other, user, root, *, stored_object_exists=None):
     def folder(parent, name):
         return json_request('POST', '/api/folders', {'parent_id': parent, 'name': name}, token=token)['id']
 
@@ -151,7 +149,7 @@ def run(request, json_request, upload, sql, token, other, user, root):
         results = [json.loads(job.result()[0]) for job in jobs]
         assert sum('id' in result for result in results) == 1
 
-    if os.environ.get('MYSQL_CLIENT'):
+    if sql is not None:
         history_a = upload(token, root, 'history-a.bin', uuid.uuid4().bytes)['id']
         history_b = upload(token, root, 'history-b.bin', uuid.uuid4().bytes)['id']
         physical_a = int(sql(f'SELECT physical_file_id FROM files WHERE id={history_a}'))
@@ -163,6 +161,6 @@ def run(request, json_request, upload, sql, token, other, user, root):
         request('GET', f'/api/files/{history_b}/download', token=token)
         purge(delete_file(history_b))
         assert sql(f'SELECT COUNT(*) FROM physical_files WHERE id IN ({physical_a},{physical_b})') == '0'
-        if os.environ.get('STORAGE_TEST_ROOT'):
-            assert not (Path(os.environ['STORAGE_TEST_ROOT']) / key_a).exists()
+        if stored_object_exists is not None:
+            assert not stored_object_exists(key_a)
     print('PASS rename/move/search, root and ownership checks, cyclic moves, trash conflicts, recursive restore/delete, shared/history object references', flush=True)

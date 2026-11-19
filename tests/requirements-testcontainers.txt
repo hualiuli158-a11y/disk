@@ -1,0 +1,2 @@
+testcontainers[mysql]==4.15.0
+bcrypt==5.0.0

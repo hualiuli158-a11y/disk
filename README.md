@@ -143,6 +143,23 @@ CTest 当前注册一个传输用例，覆盖连接复用、定长/分块/并发
 python tests/api_integration.py build/mingw-debug/disk_api.exe
 ```
 
+### 用 Testcontainers 运行集成测试
+
+先构建 C++ API，再启动支持 Linux 容器的本机 Docker。运行：
+
+```powershell
+python -m pip install -r tests/requirements-testcontainers.txt
+python -X utf8 -B tests/run_with_testcontainers.py build/mingw-debug/disk_api.exe
+```
+
+脚本会构建 `storage/Dockerfile`，启动临时 MySQL 和 gRPC 存储，按顺序执行
+`migrations/` 下的 `*.up.sql`，然后复用同一套 API 集成测试。容器和测试数据卷
+会在用例退出时回收。服务监听本地回环地址，测试端口动态分配。
+
+这条入口会直接核验去重、bcrypt 兼容、并发配额和存储对象清理。首次运行会拉取
+镜像并编译存储节点。需要覆盖文档启用时的行为，可在运行前设置
+`SWAGGER_ENABLED=true`。
+
 frontend/playwright.config.ts 默认启动 npm run dev，该模式使用演示数据，测试覆盖浏览器交互。
 
 真实后端浏览器回归使用 frontend/playwright.integration.config.ts，连接运行中的专用测试 MySQL、存储节点和 C++ API，使用本机 Chrome 执行。测试创建随机账号并从页面完成业务操作，同时核验真实接口响应、刷新后的持久化数据、下载字节和浏览器运行时错误。

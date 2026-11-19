@@ -6,6 +6,7 @@ import hmac
 import http.client
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
@@ -13,12 +14,15 @@ import time
 import uuid
 
 
-def run(executable):
+def run(executable, *, environment=None, sql=None, stored_object_exists=None):
+    if environment is None:
+        environment = os.environ.copy()
+    port = int(environment.get('PORT', '8080'))
+    host = '127.0.0.1'
+
     # The server logs each request, so a pipe left unread can block the server mid-test.
     server_log = tempfile.TemporaryFile(mode='w+', encoding='utf-8', errors='replace')
-    process = subprocess.Popen([executable], stdout=subprocess.DEVNULL, stderr=server_log)
-    port = int(os.environ.get('PORT', '8080'))
-    host = '127.0.0.1'
+    process = subprocess.Popen([executable], env=environment, stdout=subprocess.DEVNULL, stderr=server_log)
 
     def request(method, path, body=None, token=None, headers=None, expected=200):
         client = http.client.HTTPConnection(host, port, timeout=30)
@@ -39,16 +43,23 @@ def run(executable):
     def json_request(*args, **kwargs):
         return json.loads(request(*args, **kwargs)[0])
 
-    def sql(statement):
-        environment = os.environ.copy()
-        environment['MYSQL_PWD'] = environment['DB_PASSWORD']
+    def sql_from_client(statement):
+        client_environment = {**environment, 'MYSQL_PWD': environment['DB_PASSWORD']}
         result = subprocess.run([
             environment['MYSQL_CLIENT'], '--no-defaults', '--protocol=TCP',
             '--host=' + environment['DB_HOST'], '--port=' + environment['DB_PORT'],
             '--user=' + environment['DB_USER'], '--database=' + environment['DB_NAME'],
             '--batch', '--raw', '--skip-column-names',
-        ], input=statement, text=True, capture_output=True, env=environment, check=True)
+        ], input=statement, text=True, capture_output=True, env=client_environment, check=True)
         return result.stdout.strip()
+
+    if sql is None and environment.get('MYSQL_CLIENT'):
+        sql = sql_from_client
+    if stored_object_exists is None and environment.get('STORAGE_TEST_ROOT'):
+        storage_root = Path(environment['STORAGE_TEST_ROOT'])
+
+        def stored_object_exists(key):
+            return (storage_root / key).exists()
 
     def upload(token, folder, name, content, expected=200, chunked=False, declared_size=None):
         boundary = 'disk-test-' + uuid.uuid4().hex
@@ -96,7 +107,7 @@ def run(executable):
         else:
             raise RuntimeError('API failed to start')
 
-        if os.environ.get('SWAGGER_ENABLED') == 'true':
+        if environment.get('SWAGGER_ENABLED') == 'true':
             html, headers = request('GET', '/docs/')
             assert headers.get_content_type() == 'text/html' and b'id="swagger-ui"' in html
             bundle, headers = request('GET', '/docs/swagger-ui-bundle.js')
@@ -188,10 +199,10 @@ def run(executable):
             def encode(value):
                 return base64.urlsafe_b64encode(json.dumps(value, separators=(',', ':')).encode()).rstrip(b'=')
             parts = encode({'alg': 'HS256', 'typ': 'JWT'}) + b'.' + encode(claims)
-            signature = hmac.new(os.environ['JWT_SECRET'].encode(), parts, hashlib.sha256).digest()
+            signature = hmac.new(environment['JWT_SECRET'].encode(), parts, hashlib.sha256).digest()
             return (parts + b'.' + base64.urlsafe_b64encode(signature).rstrip(b'=')).decode()
 
-        claims = {'user_id': user, 'iss': os.environ.get('JWT_ISSUER', 'disk'), 'exp': int(time.time()) + 100}
+        claims = {'user_id': user, 'iss': environment.get('JWT_ISSUER', 'disk'), 'exp': int(time.time()) + 100}
         request('GET', '/api/profile', token=signed(claims))
         claims['exp'] = 1
         request('GET', '/api/profile', token=signed(claims), expected=401)
@@ -203,9 +214,10 @@ def run(executable):
         assert unicode_file['name'] == unicode_name
 
         from file_management_cases import run as management_tests
-        management_tests(request, json_request, upload, sql, token, other, user, root)
+        management_tests(request, json_request, upload, sql, token, other, user, root,
+                         stored_object_exists=stored_object_exists)
 
-        if os.environ.get('MYSQL_CLIENT'):
+        if sql is not None:
             import bcrypt
             stored_hash = sql(f'SELECT password FROM users WHERE id={user}')
             assert bcrypt.checkpw(credentials['password'].encode(), stored_hash.encode())
