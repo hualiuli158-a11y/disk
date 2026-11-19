@@ -1,0 +1,313 @@
+diff --git a/net/buffer.h b/net/buffer.h
+index 75cae52..30092b4 100644
+--- a/net/buffer.h
++++ b/net/buffer.h
+@@ -21,7 +21,7 @@
+ 
+ using namespace std;
+ 
+-const int BUFFER_DEFAULT_SIZE = 1024;
++const int BUFFER_DEFAULT_SIZE = 1024; // 初始缓冲大小（字节）
+ 
+ // 用读写下标表示有效数据区间：[reader_idx, writer_idx)。
+ class Buffer
+@@ -82,9 +82,9 @@ private:
+     // 仅拷贝数据；调用方还需移动写下标，或直接使用 WriteAndPush()。
+     void Write(const void* data, uint64_t len);
+ 
+-    vector<char> _buffer;
+-    uint64_t _reader_idx;
+-    uint64_t _writer_idx;
++    vector<char> _buffer; // 存放收发字节
++    uint64_t _reader_idx; // 可读数据起点
++    uint64_t _writer_idx; // 可写空间起点
+ };
+ 
+ #endif // 头文件保护结束
+diff --git a/net/connection.h b/net/connection.h
+index 7fd2d0b..7b7ada0 100644
+--- a/net/connection.h
++++ b/net/connection.h
+@@ -10,7 +10,14 @@
+ #include <deque>
+ #include <mutex>
+ 
+-enum ConnStatu { DISCONNECTED, CONNECTING, CONNECTED, DISCONNECTING };
++enum ConnStatu
++{
++    DISCONNECTED, // 连接已关闭
++    CONNECTING, // 连接正在建立
++    CONNECTED, // 连接可收发数据
++    DISCONNECTING // 排空发送队列后关闭
++};
++
+ class Connection;
+ using PtrConnection = std::shared_ptr<Connection>;
+ 
+@@ -74,31 +81,32 @@ private:
+     void ArmIdleCheck(std::chrono::milliseconds delay);
+     void CheckIdle();
+ 
+-    EventLoop* _loop;
+-    uint64_t _id;
+-    boost::asio::ip::tcp::socket _socket;
+-    ConnStatu _state = CONNECTING;
+-    std::atomic<bool> _release_requested{false};
+-    bool _read_paused = false;
+-    bool _read_pending = false;
+-    bool _peer_eof = false;
+-    bool _writing = false;
++    EventLoop* _loop; // 连接所属事件循环
++    uint64_t _id; // 连接唯一编号
++    boost::asio::ip::tcp::socket _socket; // TCP 连接句柄
++    ConnStatu _state = CONNECTING; // 连接当前状态
++    std::atomic<bool> _release_requested{false}; // 关闭请求已提交
++    bool _read_paused = false; // 暂停投递读取
++    bool _read_pending = false; // 存在在途读取
++    bool _peer_eof = false; // 对端已结束发送
++    bool _writing = false; // 存在在途写入
+     // Async I/O storage stays separate from the parser's resizable Buffer.
+-    std::array<char, 65536> _read_storage{};
+-    Buffer _input;
+-    std::deque<std::shared_ptr<const std::string>> _output;
+-    std::size_t _pending_output_bytes = 0;
+-    std::chrono::milliseconds _idle_timeout;
+-    std::chrono::steady_clock::time_point _last_activity;
+-    TimerHandle _idle_timer;
+-    std::any _context;
+-    std::mutex _callback_mutex;
+-    bool _establishment_submitted = false;
+-    ConnectedCallback _connected_callback;
+-    MessageCallback _message_callback;
+-    ClosedCallback _closed_callback;
+-    ClosedCallback _server_closed_callback;
+-    AnyEventCallback _event_callback;
+-    WriteCompleteCallback _write_complete_callback;
++    std::array<char, 65536> _read_storage{}; // 异步读取固定缓冲
++    Buffer _input; // 待解析的接收数据
++    std::deque<std::shared_ptr<const std::string>> _output; // 待发送数据队列
++    std::size_t _pending_output_bytes = 0; // 在途及排队字节数
++    std::chrono::milliseconds _idle_timeout; // 空闲超时（毫秒）
++    std::chrono::steady_clock::time_point _last_activity; // 最近收发时间
++    TimerHandle _idle_timer; // 空闲检测定时器
++    std::any _context; // 上层协议上下文
++    std::mutex _callback_mutex; // 保护回调配置
++    bool _establishment_submitted = false; // 连接建立任务已提交
++
++    ConnectedCallback _connected_callback; // 连接建立回调
++    MessageCallback _message_callback; // 数据到达回调
++    ClosedCallback _closed_callback; // 业务关闭回调
++    ClosedCallback _server_closed_callback; // 服务端连接回收回调
++    AnyEventCallback _event_callback; // 连接活动回调
++    WriteCompleteCallback _write_complete_callback; // 发送队列清空回调
+ };
+ #endif
+diff --git a/net/eventloop.h b/net/eventloop.h
+index f3befec..b26d935 100644
+--- a/net/eventloop.h
++++ b/net/eventloop.h
+@@ -13,8 +13,7 @@ class EventLoop
+ {
+ public:
+     using Functor = std::function<void()>;
+-    explicit EventLoop(std::chrono::milliseconds tick = std::chrono::milliseconds(100),
+-                       std::size_t slots = 256);
++    explicit EventLoop(std::chrono::milliseconds tick = std::chrono::milliseconds(100),std::size_t slots = 256);
+     ~EventLoop();
+     EventLoop(const EventLoop&) = delete;
+     EventLoop& operator=(const EventLoop&) = delete;
+@@ -31,14 +30,13 @@ public:
+     boost::asio::io_context& Context() { return _context; }
+ 
+ private:
+-    TimerHandle ScheduleTimer(std::chrono::milliseconds delay,
+-                              std::chrono::milliseconds interval, Functor task);
+-    std::thread::id _thread_id;
+-    boost::asio::io_context _context;
+-    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> _work;
+-    std::unique_ptr<TimeWheel> _time_wheel;
+-    std::atomic<uint64_t> _next_timer_id{1};
+-    std::atomic<bool> _quit{false};
+-    bool _started = false;
++    TimerHandle ScheduleTimer(std::chrono::milliseconds delay,std::chrono::milliseconds interval, Functor task);
++    std::thread::id _thread_id; // 事件循环所属线程
++    boost::asio::io_context _context; // 异步事件调度器
++    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> _work; // 保持事件循环运行
++    std::unique_ptr<TimeWheel> _time_wheel; // 管理定时任务
++    std::atomic<uint64_t> _next_timer_id{1}; // 生成定时器编号
++    std::atomic<bool> _quit{false}; // 已请求退出
++    bool _started = false; // 事件循环已启动
+ };
+ #endif
+diff --git a/net/loopthread.h b/net/loopthread.h
+index b1fa278..7681ed2 100644
+--- a/net/loopthread.h
++++ b/net/loopthread.h
+@@ -17,27 +17,27 @@
+ class LoopThread
+ {
+ public:
+-    LoopThread();
+-
+-    ~LoopThread();
++    LoopThread();
++
++    ~LoopThread();
+ 
+     LoopThread(const LoopThread&) = delete;
+     LoopThread& operator=(const LoopThread&) = delete;
+     LoopThread(LoopThread&&) = delete;
+     LoopThread& operator=(LoopThread&&) = delete;
+ 
+-    EventLoop* GetLoop() const noexcept;
++    EventLoop* GetLoop() const noexcept;
+ private:
+-    std::unique_ptr<EventLoop> _loop;
+-    std::thread _thread;
++    std::unique_ptr<EventLoop> _loop; // 工作线程持有的事件循环
++    std::thread _thread; // 运行事件循环的线程
+ };
+ 
+ class LoopThreadPool
+ {
+ public:
+-    explicit LoopThreadPool(EventLoop* baseloop);
+-
+-    ~LoopThreadPool();
++    explicit LoopThreadPool(EventLoop* baseloop);
++
++    ~LoopThreadPool();
+ 
+     LoopThreadPool(const LoopThreadPool&) = delete;
+     LoopThreadPool& operator=(const LoopThreadPool&) = delete;
+@@ -45,17 +45,17 @@ public:
+     LoopThreadPool& operator=(LoopThreadPool&&) = delete;
+ 
+     // 在所属线程中配置、创建并选择事件循环。
+-    void SetThreadCount(int count);
+-
+-    void Create();
+-
+-    EventLoop* NextLoop();
++    void SetThreadCount(int count);
++
++    void Create();
++
++    EventLoop* NextLoop();
+ private:
+-    std::size_t _thread_count = 0;
+-    std::size_t _next_idx = 0;
++    std::size_t _thread_count = 0; // 工作线程数量
++    std::size_t _next_idx = 0; // 下次轮询的线程下标
+     EventLoop* _baseloop; // 借用的指针，其指向的事件循环必须比线程池存活更久。
+-    std::vector<std::unique_ptr<LoopThread>> _threads;
+-    bool _created = false;
++    std::vector<std::unique_ptr<LoopThread>> _threads; // 工作线程集合
++    bool _created = false; // 线程池已创建
+ };
+ 
+ #endif //SOCKET_LOOPTHREAD_H
+diff --git a/net/tcpserver.h b/net/tcpserver.h
+index 1e11913..9f06ed2 100644
+--- a/net/tcpserver.h
++++ b/net/tcpserver.h
+@@ -35,20 +35,21 @@ private:
+     void AcceptNext();
+     void RemoveConnection(uint64_t id);
+     void StopInLoop();
+-    EventLoop _base_loop;
+-    boost::asio::ip::tcp::acceptor _acceptor;
+-    boost::asio::steady_timer _accept_retry;
+-    LoopThreadPool _pool;
+-    std::unordered_map<uint64_t, PtrConnection> _connections;
+-    uint16_t _port;
+-    uint64_t _next_id = 0;
+-    bool _started = false;
+-    bool _stopping = false;
+-    std::chrono::milliseconds _idle_timeout{0};
+-    ConnectedCallback _connected_callback;
+-    MessageCallback _message_callback;
+-    ClosedCallback _closed_callback;
+-    AnyEventCallback _event_callback;
+-    WriteCompleteCallback _write_complete_callback;
++    EventLoop _base_loop; // 接入与连接索引所属循环
++    boost::asio::ip::tcp::acceptor _acceptor; // TCP 连接接入器
++    boost::asio::steady_timer _accept_retry; // 接入失败重试定时器
++    LoopThreadPool _pool; // 连接 I/O 线程池
++    std::unordered_map<uint64_t, PtrConnection> _connections; // 连接编号到对象的索引
++    uint16_t _port; // 实际监听端口
++    uint64_t _next_id = 0; // 下一个连接编号
++    bool _started = false; // 服务已启动
++    bool _stopping = false; // 服务正在停止
++    std::chrono::milliseconds _idle_timeout{0}; // 连接空闲超时（毫秒）
++
++    ConnectedCallback _connected_callback; // 连接建立回调
++    MessageCallback _message_callback; // 数据到达回调
++    ClosedCallback _closed_callback; // 业务关闭回调
++    AnyEventCallback _event_callback; // 连接活动回调
++    WriteCompleteCallback _write_complete_callback; // 发送队列清空回调
+ };
+ #endif
+diff --git a/net/timerwheel.h b/net/timerwheel.h
+index 4f166c2..cdaf9c4 100644
+--- a/net/timerwheel.h
++++ b/net/timerwheel.h
+@@ -26,9 +26,9 @@ private:
+     friend class EventLoop;
+     TimerHandle(const EventLoop* owner, uint64_t id, std::shared_ptr<std::atomic<bool>> cancelled): _owner(owner), _id(id), _cancelled(std::move(cancelled)) {}
+ 
+-    const EventLoop* _owner = nullptr;
+-    uint64_t _id = 0;
+-    std::shared_ptr<std::atomic<bool>> _cancelled;
++    const EventLoop* _owner = nullptr; // 句柄所属事件循环
++    uint64_t _id = 0; // 定时器唯一编号
++    std::shared_ptr<std::atomic<bool>> _cancelled; // 共享取消标记
+ };
+ 
+ // 只在所属 EventLoop 线程访问。长于一圈的定时器按绝对 tick 保留在槽中。
+@@ -53,14 +53,14 @@ private:
+     using Bucket = std::list<std::shared_ptr<Entry>>;
+     struct Entry
+     {
+-        uint64_t id;
+-        uint64_t due_tick;
+-        std::shared_ptr<std::atomic<bool>> cancelled;
+-        std::chrono::milliseconds interval;
+-        Callback callback;
+-        std::size_t slot = 0;
+-        Bucket::iterator position;
+-        bool in_slot = false;
++        uint64_t id; // 定时器唯一编号
++        uint64_t due_tick; // 到期的绝对刻度
++        std::shared_ptr<std::atomic<bool>> cancelled; // 共享取消标记
++        std::chrono::milliseconds interval; // 周期（毫秒，0 为单次）
++        Callback callback; // 到期执行的任务
++        std::size_t slot = 0; // 所在时间轮槽位
++        Bucket::iterator position; // 槽内位置，便于取消
++        bool in_slot = false; // 当前仍在槽内
+     };
+ 
+     uint64_t DeadlineTick(Clock::time_point deadline) const;
+@@ -69,14 +69,14 @@ private:
+     void HandleTick();
+     void ProcessSlot(std::size_t index);
+ 
+-    EventLoop* _loop;
+-    std::chrono::milliseconds _tick;
+-    Clock::time_point _origin;
+-    boost::asio::steady_timer _timer;
+-    std::vector<Bucket> _slots;
+-    std::unordered_map<uint64_t, std::shared_ptr<Entry>> _entries;
+-    uint64_t _current_tick = 0;
+-    bool _started = false;
++    EventLoop* _loop; // 时间轮所属事件循环
++    std::chrono::milliseconds _tick; // 每格时长（毫秒）
++    Clock::time_point _origin; // 时间轮计时起点
++    boost::asio::steady_timer _timer; // 推进刻度的定时器
++    std::vector<Bucket> _slots; // 按到期刻度分组的槽
++    std::unordered_map<uint64_t, std::shared_ptr<Entry>> _entries; // 编号到定时任务的索引
++    uint64_t _current_tick = 0; // 已处理的绝对刻度
++    bool _started = false; // 时间轮已启动
+ };
+ 
+ #endif // MOUDU_TIMERWHEEL_H

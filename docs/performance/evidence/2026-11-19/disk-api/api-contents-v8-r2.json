@@ -1,0 +1,1647 @@
+{
+  "script_sha256": "17f2c7a268ea51e483bca623eb84cb39c53f0fdb8b3f1b74b5c573d7496dd4db",
+  "upload_actor_vus": 0,
+  "case": "contents",
+  "vus": 8,
+  "rate": null,
+  "short_connections": false,
+  "content_mode": "duplicate",
+  "payload_bytes": 1024,
+  "routes": {
+    "GET /api/folders/:id/contents": {
+      "requests": 20134,
+      "successes": 20134,
+      "duration_ms": {
+        "p(99)": 6.033908999999995,
+        "max": 7.6836,
+        "avg": 3.8035094914075804,
+        "min": 1.6612,
+        "med": 3.6965,
+        "p(95)": 5.107364999999997
+      },
+      "complete_ms": {
+        "med": 3.6988,
+        "p(95)": 5.11097,
+        "p(99)": 6.045300999999999,
+        "max": 7.7355,
+        "avg": 3.8057899523194663,
+        "min": 1.6612
+      },
+      "check_rate": 1
+    }
+  },
+  "summary": {
+    "root_group": {
+      "checks": [],
+      "name": "",
+      "path": "",
+      "id": "d41d8cd98f00b204e9800998ecf8427e",
+      "groups": []
+    },
+    "options": {
+      "summaryTrendStats": [
+        "avg",
+        "min",
+        "med",
+        "p(95)",
+        "p(99)",
+        "max"
+      ],
+      "summaryTimeUnit": "",
+      "noColor": true
+    },
+    "state": {
+      "isStdOutTTY": false,
+      "isStdErrTTY": false,
+      "testRunDurationMs": 10002.3683
+    },
+    "metrics": {
+      "target_checks{route:GET /api/folders/:id/children}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "fails": 0,
+          "rate": 0,
+          "passes": 0
+        }
+      },
+      "target_duration_ms{route:GET /benchmark/json}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_checks{route:GET /livez}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_requests{route:GET /livez}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_successes{route:DELETE /api/files/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:POST /register}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0
+        }
+      },
+      "target_checks{route:GET /benchmark/plaintext}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_body_bytes": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 301768240,
+          "rate": 30169678.914942574
+        }
+      },
+      "target_requests{route:GET /api/trash}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:GET /api/quota}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_requests{route:PATCH /api/files/:id/move}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_requests{route:GET /benchmark/plaintext}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_duration_ms": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 3.8035094914075804,
+          "min": 1.6612,
+          "med": 3.6965,
+          "p(95)": 5.107364999999997,
+          "p(99)": 6.033908999999995,
+          "max": 7.6836
+        }
+      },
+      "target_complete_ms{route:GET /api/folders/:id/contents}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "max": 7.7355,
+          "avg": 3.8057899523194663,
+          "min": 1.6612,
+          "med": 3.6988,
+          "p(95)": 5.11097,
+          "p(99)": 6.045300999999999
+        }
+      },
+      "target_requests{route:POST /login}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "http_req_failed": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "fails": 20134,
+          "rate": 0,
+          "passes": 0
+        }
+      },
+      "target_duration_ms{route:GET /api/folders/root/children}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_requests{route:POST /api/folders}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_duration_ms{route:POST /api/folders}": {
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        },
+        "type": "trend"
+      },
+      "target_successes": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "target_duration_ms{route:PATCH /api/folders/:id}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_successes{route:POST /register}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:GET /api/trash}": {
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "target_status{status:500}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:GET /benchmark/json}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_requests{route:DELETE /api/files/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_requests{route:POST /register}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_complete_ms{route:PATCH /api/folders/:id/move}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0
+        }
+      },
+      "target_status": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "target_complete_ms{route:PATCH /api/files/:id}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0
+        }
+      },
+      "target_duration_ms{route:GET /readyz}": {
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "target_successes{route:POST /api/trash/:id/restore}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_status{status:404}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_checks{route:PATCH /api/folders/:id/move}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "passes": 0,
+          "fails": 0,
+          "rate": 0
+        }
+      },
+      "target_duration_ms{route:GET /api/folders/:id/contents}": {
+        "values": {
+          "med": 3.6965,
+          "p(95)": 5.107364999999997,
+          "p(99)": 6.033908999999995,
+          "max": 7.6836,
+          "avg": 3.8035094914075804,
+          "min": 1.6612
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "target_successes{route:GET /api/search}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "data_received": {
+        "type": "counter",
+        "contains": "data",
+        "values": {
+          "count": 304727938,
+          "rate": 30465578.637011394
+        }
+      },
+      "target_checks{route:PATCH /api/files/:id}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_status{status:409}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:GET /benchmark/plaintext}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_complete_ms{route:POST /login}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "iteration_duration": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 5.287424999999998,
+          "p(99)": 6.242035999999999,
+          "max": 8.1874,
+          "avg": 3.9680244809774594,
+          "min": 2.0154,
+          "med": 3.8386
+        }
+      },
+      "target_duration_ms{route:GET /api/trash}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_checks{route:GET /api/profile}": {
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate"
+      },
+      "target_checks{route:PATCH /api/folders/:id}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_checks{route:POST /benchmark/echo}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "passes": 0,
+          "fails": 0,
+          "rate": 0
+        }
+      },
+      "target_status{status:400}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_successes{route:GET /api/folders/root/children}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_status{status:502}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_successes{route:GET /livez}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_checks{route:POST /api/files}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "passes": 0,
+          "fails": 0,
+          "rate": 0
+        }
+      },
+      "target_checks{route:POST /api/folders}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_checks{route:GET /benchmark/json}": {
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate"
+      },
+      "target_successes{route:GET /readyz}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_duration_ms{route:GET /api/folders/:id/children}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0
+        }
+      },
+      "target_complete_ms{route:PATCH /api/folders/:id}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_duration_ms{route:POST /benchmark/echo}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_duration_ms{route:POST /api/files}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        }
+      },
+      "target_status{status:401}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:POST /api/files}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_successes{route:GET /api/trash}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:DELETE /api/files/:id}": {
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "http_req_tls_handshaking": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_duration_ms{route:DELETE /api/trash/:id}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0
+        }
+      },
+      "target_checks{route:POST /login}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_duration_ms{route:GET /api/search}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        }
+      },
+      "target_successes{route:GET /benchmark/json}": {
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter",
+        "contains": "default"
+      },
+      "target_successes{route:GET /api/profile}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:GET /benchmark/json}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_duration_ms{route:GET /livez}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0
+        }
+      },
+      "target_checks{route:PATCH /api/files/:id/move}": {
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate",
+        "contains": "default"
+      },
+      "target_checks{route:GET /api/files/:id/download}": {
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate"
+      },
+      "target_requests{route:POST /api/trash/:id/restore}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_duration_ms{route:PATCH /api/folders/:id/move}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_requests{route:GET /api/files/:id/download}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_complete_ms{route:GET /api/folders/:id/children}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0
+        }
+      },
+      "target_complete_ms{route:POST /benchmark/echo}": {
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "target_checks{route:GET /api/folders/:id/contents}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 1,
+          "passes": 20134,
+          "fails": 0
+        }
+      },
+      "http_reqs": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "http_req_duration": {
+        "contains": "time",
+        "values": {
+          "max": 7.6836,
+          "avg": 3.8035094914075804,
+          "min": 1.6612,
+          "med": 3.6965,
+          "p(95)": 5.107364999999997,
+          "p(99)": 6.033908999999995
+        },
+        "type": "trend"
+      },
+      "target_successes{route:PATCH /api/folders/:id/move}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "http_req_connecting": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 1.6064,
+          "avg": 0.00048153372404887253,
+          "min": 0
+        }
+      },
+      "target_checks{route:POST /api/trash/:id/restore}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "passes": 0,
+          "fails": 0,
+          "rate": 0
+        }
+      },
+      "http_req_receiving": {
+        "values": {
+          "max": 1.8517,
+          "avg": 0.11970555776298815,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0.7294099999999991,
+          "p(99)": 0.9312679999999993
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "target_status{status:503}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:GET /api/profile}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_status{status:204}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_successes{route:GET /api/quota}": {
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter",
+        "contains": "default"
+      },
+      "target_requests{route:PATCH /api/files/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:PATCH /api/folders/:id}": {
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter",
+        "contains": "default"
+      },
+      "target_successes{route:GET /api/folders/:id/contents}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "target_status{status:429}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_requests{route:GET /api/search}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_complete_ms{route:GET /api/search}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_duration_ms{route:GET /api/quota}": {
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "iterations": {
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        },
+        "type": "counter"
+      },
+      "target_checks": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 1,
+          "passes": 20134,
+          "fails": 0
+        },
+        "thresholds": {
+          "rate==1": {
+            "ok": true
+          }
+        }
+      },
+      "http_req_blocked": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 1.6064,
+          "avg": 0.0022804609118903347,
+          "min": 0,
+          "med": 0
+        }
+      },
+      "target_successes{route:GET /api/folders/:id/children}": {
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter",
+        "contains": "default"
+      },
+      "target_successes{route:PATCH /api/files/:id/move}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_status{status:507}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_successes{route:POST /benchmark/echo}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_status{status:200}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "target_successes{route:POST /login}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:GET /api/folders/:id/contents}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "data_sent": {
+        "type": "counter",
+        "contains": "data",
+        "values": {
+          "rate": 608909.19203605,
+          "count": 6090534
+        }
+      },
+      "http_req_duration{expected_response:true}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "max": 7.6836,
+          "avg": 3.8035094914075804,
+          "min": 1.6612,
+          "med": 3.6965,
+          "p(95)": 5.107364999999997,
+          "p(99)": 6.033908999999995
+        }
+      },
+      "target_checks{route:DELETE /api/folders/:id}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_duration_ms{route:POST /api/trash/:id/restore}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0
+        }
+      },
+      "target_checks{route:DELETE /api/trash/:id}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_successes{route:GET /api/files/:id/download}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:POST /api/files}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_requests{route:GET /api/folders/:id/children}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:GET /api/folders/root/children}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_duration_ms{route:GET /api/profile}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_successes{route:GET /benchmark/plaintext}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_duration_ms{route:GET /api/files/:id/download}": {
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0
+        },
+        "type": "trend"
+      },
+      "target_complete_ms{route:GET /api/quota}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_requests{route:DELETE /api/folders/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_checks{route:GET /api/search}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_successes{route:PATCH /api/folders/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:DELETE /api/trash/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_checks{route:POST /register}": {
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate",
+        "contains": "default"
+      },
+      "target_duration_ms{route:DELETE /api/files/:id}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        }
+      },
+      "target_duration_ms{route:POST /login}": {
+        "contains": "time",
+        "values": {
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0
+        },
+        "type": "trend"
+      },
+      "target_checks{route:GET /api/quota}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_status{status:504}": {
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter",
+        "contains": "default"
+      },
+      "target_successes{route:DELETE /api/folders/:id}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_complete_ms{route:DELETE /api/trash/:id}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_successes{route:DELETE /api/trash/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_duration_ms{route:GET /benchmark/plaintext}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        }
+      },
+      "http_req_sending": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0.5084679999999994,
+          "max": 1.5164,
+          "avg": 0.008236515347173937,
+          "min": 0,
+          "med": 0
+        }
+      },
+      "vus_max": {
+        "type": "gauge",
+        "contains": "default",
+        "values": {
+          "max": 8,
+          "value": 8,
+          "min": 8
+        }
+      },
+      "target_requests{route:GET /api/folders/root/children}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "vus": {
+        "type": "gauge",
+        "contains": "default",
+        "values": {
+          "value": 8,
+          "min": 8,
+          "max": 8
+        }
+      },
+      "target_complete_ms{route:POST /api/trash/:id/restore}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_duration_ms{route:DELETE /api/folders/:id}": {
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0
+        },
+        "type": "trend"
+      },
+      "target_complete_ms{route:DELETE /api/folders/:id}": {
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0
+        },
+        "type": "trend"
+      },
+      "target_checks{route:GET /readyz}": {
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate",
+        "contains": "default"
+      },
+      "target_successes{route:POST /api/files}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms{route:GET /readyz}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0
+        }
+      },
+      "target_ttfb_ms": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "max": 7.6836,
+          "avg": 3.675567418297419,
+          "min": 1.6006,
+          "med": 3.5849,
+          "p(95)": 4.952604999999999,
+          "p(99)": 5.851178999999994
+        }
+      },
+      "target_duration_ms{route:POST /register}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0
+        }
+      },
+      "target_complete_ms{route:GET /api/profile}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "target_checks{route:GET /api/folders/root/children}": {
+        "type": "rate",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        }
+      },
+      "target_successes{route:POST /api/folders}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_complete_ms": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 3.8057899523194663,
+          "min": 1.6612,
+          "med": 3.6988,
+          "p(95)": 5.11097,
+          "p(99)": 6.045300999999999,
+          "max": 7.7355
+        }
+      },
+      "target_complete_ms{route:GET /api/files/:id/download}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_requests{route:PATCH /api/folders/:id/move}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_requests{route:GET /readyz}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "target_successes{route:PATCH /api/files/:id}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "target_complete_ms{route:GET /livez}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0
+        }
+      },
+      "http_req_waiting": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "p(95)": 4.952604999999999,
+          "p(99)": 5.851178999999994,
+          "max": 7.6836,
+          "avg": 3.675567418297418,
+          "min": 1.6006,
+          "med": 3.5849
+        }
+      },
+      "target_duration_ms{route:PATCH /api/files/:id}": {
+        "contains": "time",
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        },
+        "type": "trend"
+      },
+      "target_complete_ms{route:PATCH /api/files/:id/move}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        }
+      },
+      "target_status{status:413}": {
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        },
+        "type": "counter"
+      },
+      "target_checks{route:DELETE /api/files/:id}": {
+        "values": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0
+        },
+        "type": "rate",
+        "contains": "default"
+      },
+      "target_complete_ms{route:POST /api/folders}": {
+        "type": "trend",
+        "contains": "time",
+        "values": {
+          "min": 0,
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0
+        }
+      },
+      "target_checks{route:GET /api/trash}": {
+        "values": {
+          "fails": 0,
+          "rate": 0,
+          "passes": 0
+        },
+        "type": "rate",
+        "contains": "default"
+      },
+      "target_requests{route:POST /benchmark/echo}": {
+        "contains": "default",
+        "values": {
+          "rate": 0,
+          "count": 0
+        },
+        "type": "counter"
+      },
+      "target_duration_ms{route:PATCH /api/files/:id/move}": {
+        "values": {
+          "med": 0,
+          "p(95)": 0,
+          "p(99)": 0,
+          "max": 0,
+          "avg": 0,
+          "min": 0
+        },
+        "type": "trend",
+        "contains": "time"
+      },
+      "target_requests": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 20134,
+          "rate": 2012.9232793797444
+        }
+      },
+      "target_status{status:0}": {
+        "type": "counter",
+        "contains": "default",
+        "values": {
+          "count": 0,
+          "rate": 0
+        }
+      }
+    }
+  }
+}

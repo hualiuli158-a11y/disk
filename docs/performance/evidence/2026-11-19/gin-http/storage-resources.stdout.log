@@ -1,0 +1,3 @@
+clock_ticks=100,page_bytes=4096
+timestamp,cpu_ticks,rss_pages,threads
+1795067661,2,3598,43

@@ -1,0 +1,10 @@
+{
+  "api_integration.py": {
+    "executed_file_sha256": "df26c6319add62f04e91bb5ec165cc0ac06e717ac699c05ca75fd60eca908274",
+    "original_file_sha256": "0691cd20a90c2bec0bf65436bb99fca7bce0765047f4f1b7802765ce6aa86c95"
+  },
+  "file_management_cases.py": {
+    "executed_file_sha256": "f8c896ce61e19355be3dc0be811f2eb787fc15bceb24c0d425d4f2907bea198d",
+    "original_file_sha256": "7cab8cd374fc42a6cfe3d2e2abf2a2ec4fcd782ed85cf52fb18ce02d583d0d90"
+  }
+}

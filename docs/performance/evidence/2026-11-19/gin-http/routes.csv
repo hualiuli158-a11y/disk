@@ -1,0 +1,20 @@
+﻿case,route,requests,successes_per_second,p50_ms,p95_ms,p99_ms,non_successes
+http-plaintext-c1-r1,GET /benchmark/plaintext,81025,8102.231978166162,0,0.5167,0.5444,0
+http-plaintext-c1-r2,GET /benchmark/plaintext,81225,8122.201915189712,0,0.5168,0.5433,0
+http-plaintext-c1-r3,GET /benchmark/plaintext,73475,7347.369290300325,0,0.5202,0.5526,0
+http-plaintext-c16-r1,GET /benchmark/plaintext,401866,40183.61958093568,0,1.0068,1.507,0
+http-plaintext-c16-r2,GET /benchmark/plaintext,410034,41000.17779602701,0,1.0071,1.5079,0
+http-plaintext-c16-r3,GET /benchmark/plaintext,387526,38751.685847730856,0,1.008,1.510475,0
+http-json-c1-r1,GET /benchmark/json,76536,7653.3394037933,0,0.5171,0.5489,0
+http-json-c1-r2,GET /benchmark/json,76550,7654.921613602677,0,0.5163,0.5459,0
+http-json-c1-r3,GET /benchmark/json,74437,7442.7863979696485,0,0.518,0.5519,0
+http-json-c16-r1,GET /benchmark/json,417535,41751.743921650654,0,1.0066,1.5072,0
+http-json-c16-r2,GET /benchmark/json,414197,41417.61048155121,0,1.0067,1.5087,0
+http-json-c16-r3,GET /benchmark/json,420854,42083.7612583366,0,1.0065,1.5066,0
+http-echo-c1-r1,POST /benchmark/echo,66469,6646.738550720603,0,0.5236,0.5650319999999992,0
+http-echo-c1-r2,POST /benchmark/echo,77433,7743.107661205696,0,0.5222,0.5514,0
+http-echo-c1-r3,POST /benchmark/echo,79180,7917.800708956154,0,0.5213,0.5484,0
+http-echo-c16-r1,POST /benchmark/echo,387004,38697.590167977905,0,1.0134,1.5126,0
+http-echo-c16-r2,POST /benchmark/echo,409567,40953.64199155249,0,1.0072,1.5106,0
+http-echo-c16-r3,POST /benchmark/echo,398600,39857.04978117519,0,1.0069,1.510101000000001,0
+http-plaintext-short,GET /benchmark/plaintext,2001,200.0599640000043,0.5354,0.9469,1.2708,0

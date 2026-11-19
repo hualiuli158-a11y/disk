@@ -1,0 +1,10 @@
+{
+  "command": [
+    "E:\\Clion\\disk\\build\\tools\\k6-v2.4.0-windows-amd64\\k6.exe",
+    "run",
+    "--quiet",
+    "E:\\Clion\\disk\\tests\\performance\\routes.js"
+  ],
+  "exit_code": 0,
+  "stopped_by_runner": false
+}

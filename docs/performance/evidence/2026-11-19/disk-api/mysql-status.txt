@@ -1,0 +1,3 @@
+Slow_queries	0
+Threads_connected	9
+Threads_running	2

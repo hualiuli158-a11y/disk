@@ -1,0 +1,107 @@
+Start testing: Nov 19 14:09 ÷–π˙±Í◊º ±º‰
+----------------------------------------------------------
+1/4 Testing: gin_router
+1/4 Test: gin_router
+Command: "E:/Clion/disk/build/performance-build/disk-release/gin_router_test.exe"
+Directory: E:/Clion/disk/build/performance-build/disk-release
+"gin_router" start time: Nov 19 14:09 ÷–π˙±Í◊º ±º‰
+Output:
+----------------------------------------------------------
+[GIN] 200 GET /api/business 67us
+[GIN] 400 GET /api/business 146us
+[GIN] 404 GET /api/business 26us
+[GIN] 409 GET /api/business 27us
+[GIN] 500 GET /api/business 17us
+[GIN] 503 GET /api/business 17us
+[GIN] 507 GET /api/business 16us
+[GIN] 401 GET /api/business 3us
+[GIN] 401 GET /api/business 44us
+[GIN] 400 DELETE /files/42junk 19us
+[GIN] 400 DELETE /files/+42 12us
+[GIN] 400 DELETE /files/-1 14us
+[GIN] 400 DELETE /files/0 6us
+[GIN] 400 DELETE /files/abc 6us
+[GIN] 400 DELETE /files/ 42 7us
+[GIN] 400 DELETE /files/18446744073709551616 5us
+[GIN] 200 DELETE /files/42 0us
+[GIN] 200 DELETE /files/18446744073709551615 1us
+[GIN] 200 GET /query 2us
+[GIN] 200 GET /query 1us
+[GIN] 404 GET /missing 0us
+[GIN] 418 GET /missing 0us
+[GIN] 400 GET /missing 6us
+[GIN] 403 GET /missing 0us
+[GIN] 200 GET /api/files/42 4us
+[GIN] 200 GET /api/files/new 0us
+[GIN] 403 GET /api/blocked 4us
+[GIN] 401 GET /api/files/42 4us
+[GIN] 404 POST /api/files/42 0us
+All Gin-style router, parameters and middleware checks passed!
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"gin_router" end time: Nov 19 14:09 ÷–π˙±Í◊º ±º‰
+"gin_router" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/4 Testing: disk_transport
+2/4 Test: disk_transport
+Command: "C:/Users/ÂæêÂøµÂøµ/AppData/Local/Programs/Python/Python313/python.exe" "E:/Clion/disk_gin_cpp/tests/transport_test.py" "E:/Clion/disk/build/performance-build/disk-release/disk_transport_test.exe"
+Directory: E:/Clion/disk/build/performance-build/disk-release
+"disk_transport" start time: Nov 19 14:09 ÷–π˙±Í◊º ±º‰
+Output:
+----------------------------------------------------------
+PASS streaming, slow-upload/download isolation, health isolation, global admission, idle timeout, backpressure, cancellation
+<end of output>
+Test time =  21.11 sec
+----------------------------------------------------------
+Test Passed.
+"disk_transport" end time: Nov 19 14:10 ÷–π˙±Í◊º ±º‰
+"disk_transport" time elapsed: 00:00:21
+----------------------------------------------------------
+
+3/4 Testing: disk_retry
+3/4 Test: disk_retry
+Command: "E:/Clion/disk/build/performance-build/disk-release/disk_retry_test.exe"
+Directory: E:/Clion/disk/build/performance-build/disk-release
+"disk_retry" start time: Nov 19 14:10 ÷–π˙±Í◊º ±º‰
+Output:
+----------------------------------------------------------
+Retry bounds, unwind and non-retryable error checks passed
+<end of output>
+Test time =   0.85 sec
+----------------------------------------------------------
+Test Passed.
+"disk_retry" end time: Nov 19 14:10 ÷–π˙±Í◊º ±º‰
+"disk_retry" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: gin.runtime
+4/4 Test: gin.runtime
+Command: "E:/Clion/disk/build/performance-build/disk-release/gin-cpp/gin_runtime_test.exe"
+Directory: E:/Clion/disk/build/performance-build/disk-release/gin-cpp
+"gin.runtime" start time: Nov 19 14:10 ÷–π˙±Í◊º ±º‰
+Output:
+----------------------------------------------------------
+[GIN] 200 POST /stream/fixed 6186us
+[GIN] 200 POST /stream/chunked 7us
+[GIN] 200 GET /download 1us
+[GIN] 200 HEAD /download 1us
+[GIN] 204 GET /no-content 1us
+[GIN] 204 GET /no-content 1us
+[GIN] 204 GET /no-content 0us
+[GIN] recovered exception for POST /stream/first
+[GIN] 500 POST /stream/first 13574us
+[GIN] recovered exception for POST /stream/shutdown
+[GIN] 500 POST /stream/shutdown 15602us
+Framework streaming, HEAD, concurrency, cancellation and shutdown checks passed
+<end of output>
+Test time =   2.18 sec
+----------------------------------------------------------
+Test Passed.
+"gin.runtime" end time: Nov 19 14:10 ÷–π˙±Í◊º ±º‰
+"gin.runtime" time elapsed: 00:00:02
+----------------------------------------------------------
+
+End testing: Nov 19 14:10 ÷–π˙±Í◊º ±º‰

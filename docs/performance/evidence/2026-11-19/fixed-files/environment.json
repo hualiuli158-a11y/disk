@@ -1,0 +1,13 @@
+{
+  "db_host": "127.0.0.1",
+  "db_port": 12096,
+  "db_name": "disk_perf_ea8cea706d6a",
+  "storage_port": 12097,
+  "api_port": 12098,
+  "objects": "E:\\Clion\\disk\\build\\performance\\runtime\\disk_perf_ea8cea706d6a\\objects",
+  "io_threads": 2,
+  "business_threads": 4,
+  "mysql_pool_max": 8,
+  "upload_global": 4,
+  "upload_per_user": 2
+}

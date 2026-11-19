@@ -1,0 +1,33 @@
+Disk Gin C++ API listening on 127.0.0.1:9219
+[GIN] 200 GET /livez 22us
+[GIN] 200 POST /register 56439us
+[GIN] 409 POST /register 49716us
+[GIN] 200 POST /login 47792us
+[GIN] 200 GET /api/profile 715us
+[GIN] 200 GET /api/folders/root/children 1595us
+[GIN] 200 POST /api/folders 3117us
+[GIN] 409 POST /api/folders 2882us
+[GIN] 200 GET /api/quota 986us
+[GIN] 404 POST /api/files 513us
+Traceback (most recent call last):
+  File "E:\Clion\disk\build\performance\resume-baseline-20261119-135004\integration-source\api_integration.py", line 225, in <module>
+    run(sys.argv[1])
+    ~~~^^^^^^^^^^^^^
+  File "E:\Clion\disk\build\performance\resume-baseline-20261119-135004\integration-source\api_integration.py", line 128, in run
+    early_upload(folder, -1, 400)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\Clion\disk\build\performance\resume-baseline-20261119-135004\integration-source\api_integration.py", line 122, in early_upload
+    response = client.getresponse()
+  File "C:\Users\徐念念\AppData\Local\Programs\Python\Python313\Lib\http\client.py", line 1430, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\徐念念\AppData\Local\Programs\Python\Python313\Lib\http\client.py", line 331, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\徐念念\AppData\Local\Programs\Python\Python313\Lib\http\client.py", line 292, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\徐念念\AppData\Local\Programs\Python\Python313\Lib\socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。

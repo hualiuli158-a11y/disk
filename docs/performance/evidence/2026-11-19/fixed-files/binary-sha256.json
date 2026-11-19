@@ -1,0 +1,6 @@
+{
+  "E:\\Clion\\disk\\build\\performance-build\\disk-release\\disk_api.exe": "80bcf891a2d2eae50e61c4033c58930b0835ac9bdc90141d9567dc6693def587",
+  "E:\\Clion\\disk\\build\\performance-build\\gin-release\\disk_http_benchmark.exe": "070f442c0a0799c4b2dec87763019cc8524b68e9ec7a5ec4d31af75ca938532d",
+  "E:\\Clion\\disk\\build\\tools\\k6-v2.4.0-windows-amd64\\k6.exe": "6b68dbae8de12ae761da8722f1a182ee3ff47fe68e829b89e74a2796ded83fcb",
+  "E:\\Clion\\disk\\build\\performance-build\\storage-release\\grpc_storage_node": "9b49ea1a07440f8bd18f15464535098e37aed3d4462be7fe9db628ab4655cf32"
+}

@@ -1,0 +1,75 @@
+diff --git a/gin/detail/server.cpp b/gin/detail/server.cpp
+index ea3f351..8367143 100644
+--- a/gin/detail/server.cpp
++++ b/gin/detail/server.cpp
+@@ -110,6 +110,13 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+             connection_.lock()->Release();
+             return;
+         }
++        if (draining_)
++        {
++            drained_ += input->ReadAbleSize();
++            input->MoveReadOffset(input->ReadAbleSize());
++            if (drained_ >= 1024 * 1024) connection_.lock()->Release();
++            return;
++        }
+         if (closed_ || waiting_)
+             return;
+         try
+@@ -214,7 +221,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+                                                   if (const auto self = weak.lock())
+                                                   {
+                                                       self->Cancel();
+-                                                      if (self->responding_)
++                                                      if (self->responding_ || self->draining_)
+                                                           self->connection_.lock()->Release();
+                                                       else
+                                                           self->Respond(ErrorResponse(408, "Request timeout"),
+@@ -513,6 +520,18 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+         const auto connection = connection_.lock();
+         if (!keepAlive_)
+         {
++            if (!parser_->is_done())
++            {
++                // The response is already flushed. Closing with unread upload
++                // bytes can reset the socket and erase the HTTP error on Windows.
++                // Discard late input with a fixed byte/time budget, never reuse
++                // this connection, and release admission state promptly.
++                draining_ = true;
++                request_ = {};
++                Arm(std::chrono::seconds(1));
++                connection->ResumeRead();
++                return;
++            }
+             connection->Shutdown();
+             return;
+         }
+@@ -535,6 +554,8 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
+     TimerHandle bodyIdleTimer_;
+     std::chrono::steady_clock::time_point lastBodyProgress_;
+     bool closed_ = false, headerDone_ = false, waiting_ = false, responding_ = false, keepAlive_ = false;
++    bool draining_ = false;
++    std::size_t drained_ = 0;
+     std::uint64_t remaining_ = 0;
+ };
+ Server::Server(std::uint16_t port, const std::string& address, int threads,
+diff --git a/tests/gin_runtime_test.cpp b/tests/gin_runtime_test.cpp
+index d7702d5..8cd27fc 100644
+--- a/tests/gin_runtime_test.cpp
++++ b/tests/gin_runtime_test.cpp
+@@ -145,6 +145,15 @@ int main()
+                     Write(socket, "POST /stream/denied HTTP/1.1\r\nHost: test\r\nX-Deny: yes\r\nContent-Length: 100000\r\n\r\n");
+                     Check(Read(socket).result_int() == 401 && active == 0, "header rejection waited for the request body");
+                 }
++                // Exercise the race between header rejection and late body data.
++                for (unsigned attempt = 0; attempt < 200; ++attempt)
++                {
++                    auto rejected = Connect(io, port);
++                    Write(rejected, "POST /stream/denied HTTP/1.1\r\nHost: test\r\nX-Deny: yes\r\nContent-Length: 1000000\r\n\r\n");
++                    std::this_thread::sleep_for(std::chrono::milliseconds(attempt % 3));
++                    Write(rejected, std::string(2048, 'x'));
++                    Check(Read(rejected).result_int() == 401, "late upload body erased rejection response");
++                }
+                 {
+                     auto socket = Connect(io, port);
+                     Write(socket, "POST /stream/fixed HTTP/1.1\r\nHost: test\r\nContent-Length: 2097169\r\n\r\n");

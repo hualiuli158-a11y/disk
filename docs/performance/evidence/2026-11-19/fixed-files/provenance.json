@@ -1,0 +1,18 @@
+{
+  "disk": {
+    "commit": "438c7b06ab8414969746240c8aef52aff2e8b9e2",
+    "status": " M CMakeLists.txt\n M src/repositories/file_repository.cpp\n M src/repositories/file_repository.h\n M src/repositories/repository_support.h\n M src/repositories/trash_repository.cpp\n M src/repositories/trash_repository.h\n?? tests/retry_policy_test.cpp\n"
+  },
+  "harness": {
+    "commit": "446753344caaed296c30af9d27ea06b3e6efe237",
+    "status": " M CMakeLists.txt\n M README.md\n M scripts/build.ps1\n M src/application.cpp\n M src/application.h\n M src/http_server.cpp\n M src/http_server.h\n M src/http_types.cpp\n M src/main.cpp\n M src/repositories/file_repository.cpp\n M src/repositories/file_repository.h\n M src/repositories/repository_support.h\n M src/repositories/trash_repository.cpp\n M src/repositories/trash_repository.h\n M tests/api_integration.py\n M tests/file_management_cases.py\n?? docs/\n?? src/router.cpp\n?? src/router.h\n?? tests/performance/\n?? tests/router_test.cpp\n"
+  },
+  "gin_cpp": {
+    "commit": "a1e0491b0b373c3e6cbd786e1f48577b20680826",
+    "status": " M gin/detail/server.cpp\n M tests/gin_runtime_test.cpp\n"
+  },
+  "MouduAsio": {
+    "commit": "9a8eba2b0749c44774b494e3df7e4801412e0e73",
+    "status": " M CMakeLists.txt\n M backend/PLAN.md\n M backend/PROTOCOL.md\n M backend/README.md\n M backend/config/config.example.ini\n M backend/proto/chat.proto\n M backend/proto/message.proto\n M backend/proto/status.proto\n M backend/services/chat/ChatPeer.cpp\n M backend/services/chat/ChatPeer.h\n M backend/services/chat/ChatServer.cpp\n M backend/services/chat/ChatServer.h\n M backend/services/chat/ChatSession.cpp\n M backend/services/chat/ChatSession.h\n M backend/services/gate/GateServer.cpp\n M backend/services/gate/GateServer.h\n M backend/services/gate/main.cpp\n M backend/services/status/StatusService.h\n M backend/sql/001_accounts.sql\n M backend/sql/003_friends.sql\n M backend/sql/004_text_messages.sql\n M backend/src/account/AccountService.h\n M backend/src/account/MysqlDao.cpp\n M backend/src/account/MysqlDao.h\n M backend/src/account/PasswordHash.cpp\n M backend/src/common/BusinessPool.cpp\n M backend/src/common/BusinessPool.h\n M backend/src/common/ChatNodes.h\n M backend/src/common/ChatProtocol.h\n M backend/src/common/ErrorCodes.h\n M backend/src/config/ConfigMgr.h\n M backend/src/redis/RedisConPool.h\n M backend/src/redis/RedisMgr.cpp\n M backend/src/redis/RedisMgr.h\n M backend/src/rpc/RpcConPool.h\n M backend/src/rpc/StatusGrpcClient.h\n M backend/src/rpc/VerifyGrpcClient.h\n M backend/tests/text_integration.cjs\n M http/http_codec.h\n M http/http_server.cpp\n M http/http_server.h\n M net/buffer.h\n M net/connection.h\n M net/eventloop.h\n M net/loopthread.h\n M net/tcpserver.h\n M net/timerwheel.h\n?? .run/\n"
+  }
+}

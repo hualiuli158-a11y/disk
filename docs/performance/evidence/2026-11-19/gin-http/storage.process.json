@@ -1,0 +1,12 @@
+{
+  "command": [
+    "wsl",
+    "-d",
+    "Ubuntu",
+    "--exec",
+    "sh",
+    "/mnt/e/Clion/disk/build/performance/resume-baseline-20261119-135004/storage-launch.sh"
+  ],
+  "exit_code": 1,
+  "stopped_by_runner": true
+}

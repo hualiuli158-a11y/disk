@@ -1,0 +1,18 @@
+{
+  "disk": {
+    "commit": "438c7b06ab8414969746240c8aef52aff2e8b9e2",
+    "dirty": false
+  },
+  "harness": {
+    "commit": "446753344caaed296c30af9d27ea06b3e6efe237",
+    "dirty": true
+  },
+  "gin_cpp": {
+    "commit": "a1e0491b0b373c3e6cbd786e1f48577b20680826",
+    "dirty": false
+  },
+  "MouduAsio": {
+    "commit": "9a8eba2b0749c44774b494e3df7e4801412e0e73",
+    "dirty": true
+  }
+}

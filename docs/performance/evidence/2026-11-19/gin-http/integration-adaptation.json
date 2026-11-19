@@ -1,0 +1,12 @@
+{
+  "api_integration.py": {
+    "original_sha256": "0691cd20a90c2bec0bf65436bb99fca7bce0765047f4f1b7802765ce6aa86c95",
+    "executed_sha256": "416a406292c6a50922d69652fc023774d2a870e0998e29abcf5d50ff1ae5e86b",
+    "change": "Case-insensitive header lookup; stream child logs instead of undrained PIPE; all assertions retained"
+  },
+  "file_management_cases.py": {
+    "original_sha256": "7cab8cd374fc42a6cfe3d2e2abf2a2ec4fcd782ed85cf52fb18ce02d583d0d90",
+    "executed_sha256": "7cab8cd374fc42a6cfe3d2e2abf2a2ec4fcd782ed85cf52fb18ce02d583d0d90",
+    "change": "unchanged"
+  }
+}

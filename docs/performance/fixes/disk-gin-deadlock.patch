@@ -1,0 +1,140 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 23b1124..73292f9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -104,3 +104,14 @@ if(BUILD_TESTING)
+     endif()
+     set_tests_properties(disk_transport PROPERTIES TIMEOUT 120)
+ endif()
++
++if(BUILD_TESTING)
++    add_executable(disk_retry_test tests/retry_policy_test.cpp)
++    target_link_libraries(disk_retry_test PRIVATE disk_core)
++    add_test(NAME disk_retry COMMAND disk_retry_test)
++    set_tests_properties(disk_retry PROPERTIES TIMEOUT 10)
++    if(WIN32)
++        set_property(TEST disk_retry APPEND PROPERTY ENVIRONMENT_MODIFICATION
++            "PATH=path_list_prepend:${_compiler_bin_dir}")
++    endif()
++endif()
+diff --git a/src/repositories/file_repository.cpp b/src/repositories/file_repository.cpp
+index fff39fa..b2b06ca 100644
+--- a/src/repositories/file_repository.cpp
++++ b/src/repositories/file_repository.cpp
+@@ -23,6 +23,10 @@ void FileRepository::CheckUpload(std::uint64_t user, std::uint64_t folder, std::
+         throw Error(507, "Storage quota exceeded");
+ }
+ UploadCommit FileRepository::CreateUploadedFile(const UploadedObject &object)
++{
++    return RetryDeadlockedTransaction([&] { return CreateUploadedFileAttempt(object); });
++}
++UploadCommit FileRepository::CreateUploadedFileAttempt(const UploadedObject &object)
+ {
+     const auto user = object.user;
+     const auto folderId = object.folder;
+diff --git a/src/repositories/file_repository.h b/src/repositories/file_repository.h
+index ce3c481..51dd47a 100644
+--- a/src/repositories/file_repository.h
++++ b/src/repositories/file_repository.h
+@@ -18,6 +18,7 @@ class FileRepository
+     void WithUnreferencedCandidate(const std::string &key, const std::function<void()> &cleanup);
+ 
+   private:
++    UploadCommit CreateUploadedFileAttempt(const UploadedObject &object);
+     Database &database_;
+ };
+ } // namespace disk
+diff --git a/src/repositories/repository_support.h b/src/repositories/repository_support.h
+index 6e1c137..34f677f 100644
+--- a/src/repositories/repository_support.h
++++ b/src/repositories/repository_support.h
+@@ -1,8 +1,27 @@
+ #pragma once
+ #include "database.h"
+ #include "models.h"
++#include <boost/mysql/common_server_errc.hpp>
++#include <boost/system/system_error.hpp>
++#include <chrono>
++#include <thread>
+ namespace disk
+ {
++// 1213 rolls back the whole InnoDB victim transaction. Never retry unknown
++// COMMIT outcomes, lock timeouts, or storage RPCs here.
++template <class Operation> auto RetryDeadlockedTransaction(Operation operation)
++{
++    for (unsigned attempt = 0;; ++attempt)
++    {
++        try { return operation(); }
++        catch (const boost::system::system_error &error)
++        {
++            if (error.code() != boost::mysql::common_server_errc::er_lock_deadlock || attempt == 6)
++                throw;
++            std::this_thread::sleep_for(std::chrono::milliseconds(2u << attempt));
++        }
++    }
++}
+ void LockUser(Database &database, boost::mysql::any_connection &connection, std::uint64_t user);
+ std::string IdList(const std::vector<std::uint64_t> &ids);
+ std::vector<std::uint64_t> FolderTree(Database &database, boost::mysql::any_connection &connection,
+diff --git a/src/repositories/trash_repository.cpp b/src/repositories/trash_repository.cpp
+index 245d855..33c5ff7 100644
+--- a/src/repositories/trash_repository.cpp
++++ b/src/repositories/trash_repository.cpp
+@@ -195,6 +195,10 @@ void TrashRepository::Restore(std::uint64_t user, std::uint64_t trash)
+     transaction.Commit();
+ }
+ std::vector<std::string> TrashRepository::PermanentlyDelete(std::uint64_t user, std::uint64_t trash)
++{
++    return RetryDeadlockedTransaction([&] { return PermanentlyDeleteAttempt(user, trash); });
++}
++std::vector<std::string> TrashRepository::PermanentlyDeleteAttempt(std::uint64_t user, std::uint64_t trash)
+ {
+     Transaction transaction(database_);
+     auto &connection = transaction.Connection();
+diff --git a/src/repositories/trash_repository.h b/src/repositories/trash_repository.h
+index 1e70b01..666206a 100644
+--- a/src/repositories/trash_repository.h
++++ b/src/repositories/trash_repository.h
+@@ -14,6 +14,7 @@ class TrashRepository
+     std::vector<std::string> PermanentlyDelete(std::uint64_t user, std::uint64_t trash);
+ 
+   private:
++    std::vector<std::string> PermanentlyDeleteAttempt(std::uint64_t user, std::uint64_t trash);
+     Database &database_;
+ };
+ } // namespace disk
+diff --git a/tests/retry_policy_test.cpp b/tests/retry_policy_test.cpp
+new file mode 100644
+--- /dev/null
++++ b/tests/retry_policy_test.cpp
+@@ -0,0 +1,30 @@
++#include "repositories/repository_support.h"
++#include <stdexcept>
++#include <iostream>
++void Check(bool ok) { if (!ok) throw std::runtime_error("retry policy regression"); }
++int main() {
++    unsigned calls = 0, active = 0;
++    auto operation = [&]() {
++        struct Scope { unsigned& active; ~Scope() { --active; } } scope{active};
++        Check(active++ == 0); // The failed attempt must unwind before retry.
++        if (++calls < 3) throw boost::system::system_error(boost::mysql::common_server_errc::er_lock_deadlock);
++        return 42;
++    };
++    Check(disk::RetryDeadlockedTransaction(operation) == 42 && calls == 3 && active == 0);
++    calls = 0;
++    try {
++        disk::RetryDeadlockedTransaction([&]() -> int { ++calls; throw boost::system::system_error(boost::mysql::common_server_errc::er_lock_deadlock); });
++        Check(false);
++    } catch (const boost::system::system_error&) { Check(calls == 7); }
++    calls = 0;
++    try {
++        disk::RetryDeadlockedTransaction([&]() -> int { ++calls; throw boost::system::system_error(boost::mysql::common_server_errc::er_lock_wait_timeout); });
++        Check(false);
++    } catch (const boost::system::system_error&) { Check(calls == 1); }
++    calls = 0;
++    try {
++        disk::RetryDeadlockedTransaction([&]() -> int { ++calls; throw std::runtime_error("unknown commit outcome"); });
++        Check(false);
++    } catch (const std::runtime_error&) { Check(calls == 1); }
++    std::cout << "Retry bounds, unwind and non-retryable error checks passed\n";
++}

@@ -1,0 +1,114 @@
+{
+  "commit": "438c7b06ab8414969746240c8aef52aff2e8b9e2",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+  "logical_cpus": 24,
+  "configuration": "Release",
+  "compiler": "E:/mingw64/bin/g++.exe",
+  "grpc_cmake_directory": "E:/Libraries/grpc-mingw-debug/lib/cmake/grpc",
+  "storage_configuration": "Release",
+  "command": [
+    "C:\\Users\\徐念念\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+    "tests/performance/run.py",
+    "--source",
+    "E:/Clion/disk_gin_cpp",
+    "--framework-source",
+    "E:/Clion/gin_ cpp",
+    "--build",
+    "build/performance-build/disk-release",
+    "--http-build",
+    "build/performance-build/gin-release",
+    "--storage-build",
+    "build/performance-build/storage-release",
+    "--stages",
+    "files",
+    "--duration",
+    "10",
+    "--warmup",
+    "2",
+    "--repeats",
+    "3",
+    "--accounts",
+    "4",
+    "--dataset-size",
+    "100",
+    "--file-bytes",
+    "1048576",
+    "--recovery",
+    "5",
+    "--output",
+    "build/performance/fixed-files-20261119"
+  ],
+  "source_directory": "E:\\Clion\\disk_gin_cpp",
+  "args": {
+    "stages": [
+      "files"
+    ],
+    "build": "E:\\Clion\\disk\\build\\performance-build\\disk-release",
+    "source": "E:\\Clion\\disk_gin_cpp",
+    "http_build": "E:\\Clion\\disk\\build\\performance-build\\gin-release",
+    "framework_source": "E:\\Clion\\gin_ cpp",
+    "output": "build\\performance\\fixed-files-20261119",
+    "storage_build": "E:\\Clion\\disk\\build\\performance-build\\storage-release",
+    "k6": "E:\\Clion\\disk\\build\\tools\\k6-v2.4.0-windows-amd64\\k6.exe",
+    "mysql_bin": "C:/Program Files/MySQL/MySQL Server 8.0/bin",
+    "distro": "Ubuntu",
+    "duration": 10,
+    "warmup": 2,
+    "repeats": 3,
+    "connections": [
+      1,
+      10,
+      100
+    ],
+    "io_threads": [
+      1,
+      2,
+      4
+    ],
+    "http_threads": 2,
+    "client_threads": 4,
+    "short_vus": 10,
+    "tcp_extras": false,
+    "message_bytes": [
+      64,
+      1024,
+      16384,
+      65536
+    ],
+    "api_vus": [
+      1,
+      10,
+      50
+    ],
+    "cases": [
+      "profile",
+      "quota",
+      "root",
+      "children",
+      "contents",
+      "search",
+      "trash",
+      "livez",
+      "readyz",
+      "login",
+      "register",
+      "workflow"
+    ],
+    "rates": [
+      100,
+      500
+    ],
+    "rate_vus": null,
+    "accounts": 4,
+    "dataset_size": 100,
+    "file_bytes": [
+      1048576
+    ],
+    "soak_seconds": 1800,
+    "recovery": 5,
+    "skip_integration": false
+  },
+  "cpu_model": "12th Gen Intel(R) Core(TM) i7-12800HX",
+  "physical_memory_bytes": 16898166784
+}

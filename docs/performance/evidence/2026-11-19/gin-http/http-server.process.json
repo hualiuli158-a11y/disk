@@ -1,0 +1,13 @@
+{
+  "command": [
+    "E:\\Clion\\disk\\build\\performance-build\\gin-release\\disk_http_benchmark.exe",
+    "--port",
+    "7194",
+    "--threads",
+    "2",
+    "--duration",
+    "86400"
+  ],
+  "exit_code": 1,
+  "stopped_by_runner": true
+}

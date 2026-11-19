@@ -1,0 +1,311 @@
+{
+  "metadata": {
+    "commit": "438c7b06ab8414969746240c8aef52aff2e8b9e2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+    "logical_cpus": 24,
+    "configuration": "Release",
+    "compiler": "E:/mingw64/bin/g++.exe",
+    "grpc_cmake_directory": "E:/Libraries/grpc-mingw-debug/lib/cmake/grpc",
+    "storage_configuration": "Release",
+    "command": [
+      "C:\\Users\\徐念念\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "E:\\Clion\\disk\\tests\\performance\\run.py",
+      "--source",
+      "E:\\Clion\\disk_gin_cpp",
+      "--framework-source",
+      "E:\\Clion\\gin_ cpp",
+      "--build",
+      "E:\\Clion\\disk\\build\\performance-build\\disk-release",
+      "--http-build",
+      "E:\\Clion\\disk\\build\\performance-build\\gin-release",
+      "--storage-build",
+      "E:\\Clion\\disk\\build\\performance-build\\storage-release",
+      "--k6",
+      "E:\\Clion\\disk\\build\\tools\\k6-v2.4.0-windows-amd64\\k6.exe",
+      "--distro",
+      "Ubuntu",
+      "--output",
+      "E:\\Clion\\disk\\build\\performance\\resume-baseline-20261119-135004",
+      "--stages",
+      "http,api,files",
+      "--duration",
+      "10",
+      "--warmup",
+      "2",
+      "--repeats",
+      "3",
+      "--connections",
+      "1,16",
+      "--api-vus",
+      "1,8",
+      "--cases",
+      "profile,contents,search",
+      "--accounts",
+      "4",
+      "--dataset-size",
+      "100",
+      "--file-bytes",
+      "1048576",
+      "--rates",
+      "100",
+      "--recovery",
+      "5"
+    ],
+    "source_directory": "E:\\Clion\\disk_gin_cpp",
+    "args": {
+      "stages": [
+        "http",
+        "api",
+        "files"
+      ],
+      "build": "E:\\Clion\\disk\\build\\performance-build\\disk-release",
+      "source": "E:\\Clion\\disk_gin_cpp",
+      "http_build": "E:\\Clion\\disk\\build\\performance-build\\gin-release",
+      "framework_source": "E:\\Clion\\gin_ cpp",
+      "output": "E:\\Clion\\disk\\build\\performance\\resume-baseline-20261119-135004",
+      "storage_build": "E:\\Clion\\disk\\build\\performance-build\\storage-release",
+      "k6": "E:\\Clion\\disk\\build\\tools\\k6-v2.4.0-windows-amd64\\k6.exe",
+      "mysql_bin": "C:/Program Files/MySQL/MySQL Server 8.0/bin",
+      "distro": "Ubuntu",
+      "duration": 10,
+      "warmup": 2,
+      "repeats": 3,
+      "connections": [
+        1,
+        16
+      ],
+      "io_threads": [
+        1,
+        2,
+        4
+      ],
+      "http_threads": 2,
+      "client_threads": 4,
+      "short_vus": 10,
+      "tcp_extras": false,
+      "message_bytes": [
+        64,
+        1024,
+        16384,
+        65536
+      ],
+      "api_vus": [
+        1,
+        8
+      ],
+      "cases": [
+        "profile",
+        "contents",
+        "search"
+      ],
+      "rates": [
+        100
+      ],
+      "rate_vus": null,
+      "accounts": 4,
+      "dataset_size": 100,
+      "file_bytes": [
+        1048576
+      ],
+      "soak_seconds": 1800,
+      "recovery": 5,
+      "skip_integration": false
+    },
+    "cpu_model": "12th Gen Intel(R) Core(TM) i7-12800HX",
+    "physical_memory_bytes": 16898166784
+  },
+  "results": [
+    {
+      "label": "http-plaintext-c1-r1",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.716182900010608,
+      "summary_file": "http-plaintext-c1-r1.json"
+    },
+    {
+      "label": "http-plaintext-c1-r2",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.706742299997131,
+      "summary_file": "http-plaintext-c1-r2.json"
+    },
+    {
+      "label": "http-plaintext-c1-r3",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.73774169999524,
+      "summary_file": "http-plaintext-c1-r3.json"
+    },
+    {
+      "label": "http-plaintext-c16-r1",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.737069299997529,
+      "summary_file": "http-plaintext-c16-r1.json"
+    },
+    {
+      "label": "http-plaintext-c16-r2",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.792654999997467,
+      "summary_file": "http-plaintext-c16-r2.json"
+    },
+    {
+      "label": "http-plaintext-c16-r3",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 11.997697600003448,
+      "summary_file": "http-plaintext-c16-r3.json"
+    },
+    {
+      "label": "http-json-c1-r1",
+      "kind": "http",
+      "case": "json",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.831975199995213,
+      "summary_file": "http-json-c1-r1.json"
+    },
+    {
+      "label": "http-json-c1-r2",
+      "kind": "http",
+      "case": "json",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.740781100001186,
+      "summary_file": "http-json-c1-r2.json"
+    },
+    {
+      "label": "http-json-c1-r3",
+      "kind": "http",
+      "case": "json",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 11.005179100000532,
+      "summary_file": "http-json-c1-r3.json"
+    },
+    {
+      "label": "http-json-c16-r1",
+      "kind": "http",
+      "case": "json",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.739738500007661,
+      "summary_file": "http-json-c16-r1.json"
+    },
+    {
+      "label": "http-json-c16-r2",
+      "kind": "http",
+      "case": "json",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.844771000003675,
+      "summary_file": "http-json-c16-r2.json"
+    },
+    {
+      "label": "http-json-c16-r3",
+      "kind": "http",
+      "case": "json",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.758633199991891,
+      "summary_file": "http-json-c16-r3.json"
+    },
+    {
+      "label": "http-echo-c1-r1",
+      "kind": "http",
+      "case": "echo",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.776224000001093,
+      "summary_file": "http-echo-c1-r1.json"
+    },
+    {
+      "label": "http-echo-c1-r2",
+      "kind": "http",
+      "case": "echo",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.76366890000645,
+      "summary_file": "http-echo-c1-r2.json"
+    },
+    {
+      "label": "http-echo-c1-r3",
+      "kind": "http",
+      "case": "echo",
+      "vus": 1,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.740527600006317,
+      "summary_file": "http-echo-c1-r3.json"
+    },
+    {
+      "label": "http-echo-c16-r1",
+      "kind": "http",
+      "case": "echo",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.745847199999844,
+      "summary_file": "http-echo-c16-r1.json"
+    },
+    {
+      "label": "http-echo-c16-r2",
+      "kind": "http",
+      "case": "echo",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 12.325467500006198,
+      "summary_file": "http-echo-c16-r2.json"
+    },
+    {
+      "label": "http-echo-c16-r3",
+      "kind": "http",
+      "case": "echo",
+      "vus": 16,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.750183299998753,
+      "summary_file": "http-echo-c16-r3.json"
+    },
+    {
+      "label": "http-plaintext-short",
+      "kind": "http",
+      "case": "plaintext",
+      "vus": 10,
+      "seconds": 10,
+      "exit_code": 0,
+      "wall_seconds": 10.763955100002931,
+      "summary_file": "http-plaintext-short.json"
+    }
+  ],
+  "failure": "Command '['C:\\\\Users\\\\徐念念\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\python.exe', 'E:\\\\Clion\\\\disk\\\\tests\\\\performance\\\\api_regression.py', 'E:\\\\Clion\\\\disk_gin_cpp', 'E:\\\\Clion\\\\disk\\\\build\\\\performance-build\\\\disk-release\\\\disk_api.exe', 'E:\\\\Clion\\\\disk\\\\build\\\\performance\\\\resume-baseline-20261119-135004']' returned non-zero exit status 1."
+}

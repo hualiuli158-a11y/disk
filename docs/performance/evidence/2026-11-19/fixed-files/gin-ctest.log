@@ -1,0 +1,30 @@
+Start testing: Nov 19 14:09 中国标准时间
+----------------------------------------------------------
+1/1 Testing: gin.runtime
+1/1 Test: gin.runtime
+Command: "E:/Clion/disk/build/performance-build/gin-release/gin-cpp/gin_runtime_test.exe"
+Directory: E:/Clion/disk/build/performance-build/gin-release/gin-cpp
+"gin.runtime" start time: Nov 19 14:09 中国标准时间
+Output:
+----------------------------------------------------------
+[GIN] 200 POST /stream/fixed 9008us
+[GIN] 200 POST /stream/chunked 13us
+[GIN] 200 GET /download 2us
+[GIN] 200 HEAD /download 1us
+[GIN] 204 GET /no-content 1us
+[GIN] 204 GET /no-content 1us
+[GIN] 204 GET /no-content 1us
+[GIN] recovered exception for POST /stream/first
+[GIN] 500 POST /stream/first 26176us
+[GIN] recovered exception for POST /stream/shutdown
+[GIN] 500 POST /stream/shutdown 14785us
+Framework streaming, HEAD, concurrency, cancellation and shutdown checks passed
+<end of output>
+Test time =   2.57 sec
+----------------------------------------------------------
+Test Passed.
+"gin.runtime" end time: Nov 19 14:09 中国标准时间
+"gin.runtime" time elapsed: 00:00:02
+----------------------------------------------------------
+
+End testing: Nov 19 14:09 中国标准时间

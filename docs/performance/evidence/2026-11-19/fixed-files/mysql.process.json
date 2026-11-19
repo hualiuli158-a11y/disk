@@ -1,0 +1,15 @@
+{
+  "command": [
+    "C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqld.exe",
+    "--no-defaults",
+    "--basedir=C:\\Program Files\\MySQL\\MySQL Server 8.0",
+    "--datadir=E:\\Clion\\disk\\build\\performance\\runtime\\mysql",
+    "--bind-address=127.0.0.1",
+    "--port=12096",
+    "--mysqlx=OFF",
+    "--log-error=E:\\Clion\\disk\\build\\performance\\runtime\\mysql.log",
+    "--skip-log-bin"
+  ],
+  "exit_code": 1,
+  "stopped_by_runner": true
+}
