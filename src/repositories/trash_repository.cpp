@@ -196,6 +196,10 @@ void TrashRepository::Restore(std::uint64_t user, std::uint64_t trash)
 }
 std::vector<std::string> TrashRepository::PermanentlyDelete(std::uint64_t user, std::uint64_t trash)
 {
+    return RetryDeadlockedTransaction([&] { return PermanentlyDeleteAttempt(user, trash); });
+}
+std::vector<std::string> TrashRepository::PermanentlyDeleteAttempt(std::uint64_t user, std::uint64_t trash)
+{
     Transaction transaction(database_);
     auto &connection = transaction.Connection();
     LockUser(database_, connection, user);

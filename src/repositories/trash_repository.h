@@ -14,6 +14,7 @@ class TrashRepository
     std::vector<std::string> PermanentlyDelete(std::uint64_t user, std::uint64_t trash);
 
   private:
+    std::vector<std::string> PermanentlyDeleteAttempt(std::uint64_t user, std::uint64_t trash);
     Database &database_;
 };
 } // namespace disk

@@ -18,6 +18,7 @@ class FileRepository
     void WithUnreferencedCandidate(const std::string &key, const std::function<void()> &cleanup);
 
   private:
+    UploadCommit CreateUploadedFileAttempt(const UploadedObject &object);
     Database &database_;
 };
 } // namespace disk

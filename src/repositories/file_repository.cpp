@@ -24,6 +24,10 @@ void FileRepository::CheckUpload(std::uint64_t user, std::uint64_t folder, std::
 }
 UploadCommit FileRepository::CreateUploadedFile(const UploadedObject &object)
 {
+    return RetryDeadlockedTransaction([&] { return CreateUploadedFileAttempt(object); });
+}
+UploadCommit FileRepository::CreateUploadedFileAttempt(const UploadedObject &object)
+{
     const auto user = object.user;
     const auto folderId = object.folder;
     const auto &name = object.name;
