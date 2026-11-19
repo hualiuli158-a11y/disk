@@ -4,6 +4,35 @@
 #include <jwt-cpp/jwt.h>
 namespace disk
 {
+namespace
+{
+constexpr auto InvalidToken = "Invalid or expired access token";
+
+auto DecodeAccessToken(const std::string &token)
+{
+    const auto decodeSegment = [](const std::string &segment)
+    {
+        try
+        {
+            using Alphabet = jwt::alphabet::base64url;
+            return jwt::base::decode<Alphabet>(jwt::base::pad<Alphabet>(segment));
+        }
+        catch (const std::runtime_error &)
+        {
+            throw Error(401, InvalidToken);
+        }
+    };
+    try
+    {
+        return jwt::decode<jwt::traits::kazuho_picojson>(token, decodeSegment);
+    }
+    catch (const std::invalid_argument &) {} // Invalid compact token format.
+    catch (const jwt::error::invalid_json_exception &) {}
+    catch (const std::bad_cast &) {} // Header or payload is not a JSON object.
+    throw Error(401, InvalidToken);
+}
+} // namespace
+
 std::string Auth::Token(std::uint64_t user) const
 {
     const auto encode = [](const std::string &value)
@@ -30,24 +59,38 @@ std::string Auth::Token(std::uint64_t user) const
 }
 std::uint64_t Auth::Verify(const std::string &authorization) const
 {
+    if (authorization.rfind("Bearer ", 0) != 0)
+        throw Error(401, "Authentication required");
+    const auto decoded = DecodeAccessToken(authorization.substr(7));
+
+    Json::Value parsedClaims;
     try
     {
-        if (authorization.rfind("Bearer ", 0) != 0)
-            throw Error(401, "Authentication required");
-        const auto decoded = jwt::decode(authorization.substr(7));
-        jwt::verify().allow_algorithm(jwt::algorithm::hs256(secret_)).with_issuer(issuer_).verify(decoded);
-        if (!decoded.has_expires_at())
-            throw Error(401, "Token expiration required");
         // JsonCpp retains the complete unsigned MySQL identifier range.
-        const auto claims = ParseJson(decoded.get_payload());
-        if (!claims["user_id"].isUInt64() || !claims["user_id"].asUInt64())
-            throw Error(401, "Invalid user");
-        return claims["user_id"].asUInt64();
+        parsedClaims = ParseJson(decoded.get_payload());
     }
-    catch (...)
+    catch (const Error &error)
     {
-        throw Error(401, "Invalid or expired access token");
+        if (error.status != 400)
+            throw;
+        throw Error(401, InvalidToken);
     }
+    const auto &claims = parsedClaims;
+    if (!decoded.has_algorithm() || !decoded.get_header_claim("alg").to_json().is<std::string>() ||
+        !claims["iss"].isString() || !claims["exp"].isNumeric() ||
+        (claims.isMember("iat") && !claims["iat"].isNumeric()) ||
+        (claims.isMember("nbf") && !claims["nbf"].isNumeric()) ||
+        !claims["user_id"].isUInt64() || !claims["user_id"].asUInt64())
+        throw Error(401, InvalidToken);
+
+    std::error_code error;
+    jwt::verify().allow_algorithm(jwt::algorithm::hs256(secret_)).with_issuer(issuer_).verify(decoded, error);
+    if (error.category() == jwt::error::token_verification_error_category() ||
+        error == jwt::error::signature_verification_error::invalid_signature)
+        throw Error(401, InvalidToken);
+    if (error)
+        throw std::system_error(error);
+    return claims["user_id"].asUInt64();
 }
 std::string Auth::Hash(const std::string &password)
 {

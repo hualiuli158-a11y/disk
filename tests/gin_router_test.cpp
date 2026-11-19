@@ -3,6 +3,7 @@
 #include "middleware/jwt.h"
 #include "middleware/errors.h"
 #include "handlers/handler_utils.h"
+#include <openssl/evp.h>
 #include <limits>
 #include <iostream>
 #include <stdexcept>
@@ -61,13 +62,22 @@ void CheckJWT()
         Check(nlohmann::json::parse(response.body)["error"] == "Business failure",
               "JWT replaced a business error message");
     }
-    for (const auto& authorization : {std::string{}, std::string("Bearer invalid")})
+    for (const auto& authorization : {std::string{}, std::string("Bearer invalid"), token + "!",
+                                      std::string("Bearer W10.e30.e30"), std::string("Bearer e30.e30.e30")})
     {
         called = false;
         request.headers["authorization"] = authorization;
         Check(Dispatch(router, request).status == 401 && !called,
               "invalid JWT reached the business handler");
     }
+#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
+    request.headers["authorization"] = token;
+    Check(EVP_set_default_properties(nullptr, "provider=disk_test_missing_provider") == 1,
+          "could not simulate an unavailable OpenSSL provider");
+    const auto response = Dispatch(router, request);
+    Check(EVP_set_default_properties(nullptr, nullptr) == 1, "could not restore OpenSSL defaults");
+    Check(response.status == 500 && !called, "JWT crypto failure did not reach server error handling");
+#endif
 }
 
 void CheckIdentifiersAndQueries()

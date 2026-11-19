@@ -8,12 +8,15 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 
 
 def run(executable):
-    process = subprocess.Popen([executable], env=os.environ.copy(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    # The server logs each request, so a pipe left unread can block the server mid-test.
+    server_log = tempfile.TemporaryFile(mode='w+', encoding='utf-8', errors='replace')
+    process = subprocess.Popen([executable], stdout=subprocess.DEVNULL, stderr=server_log)
     port = int(os.environ.get('PORT', '8080'))
     host = '127.0.0.1'
 
@@ -29,7 +32,7 @@ def run(executable):
         response = client.getresponse()
         data = response.read()
         assert response.status in (expected if isinstance(expected, tuple) else (expected,)), (method, path, response.status, data[:500])
-        result = (data, dict(response.getheaders()))
+        result = (data, response.headers)
         client.close()
         return result
 
@@ -83,7 +86,8 @@ def run(executable):
     try:
         for _ in range(100):
             if process.poll() is not None:
-                raise RuntimeError(process.stderr.read())
+                server_log.seek(0)
+                raise RuntimeError(server_log.read())
             try:
                 request('GET', '/livez')
                 break
@@ -144,6 +148,7 @@ def run(executable):
         download, headers = request('GET', f'/api/files/{first["id"]}/download', token=token)
         assert download == content
         assert headers['ETag'] == f'"{first["sha256"]}"'
+        assert headers.get_all('Content-Type') == ['application/octet-stream']
         upload(token, folder, 'data.bin', content, expected=409)
         second = upload(token, folder, 'same-content.bin', content, chunked=True)
         assert second['id'] != first['id']
@@ -212,7 +217,9 @@ def run(executable):
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
-        errors = process.stderr.read()
+        server_log.seek(0)
+        errors = server_log.read()
+        server_log.close()
         if errors:
             print(errors, file=sys.stderr)
 

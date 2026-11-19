@@ -68,6 +68,19 @@ def run(request, json_request, upload, sql, token, other, user, root):
         request('GET', '/api/search?' + urlencode(query), token=token, expected=400)
     assert json_request('GET', '/api/search?' + urlencode({'q': "' OR 1=1 --"}), token=token)['total'] == 0
 
+    literal = 'Report_2026%!draft'
+    similar = 'ReportX20260draft'
+    folder(root, literal)
+    folder(root, similar)
+    upload(token, root, literal + '.txt', b'')
+    upload(token, root, similar + '.txt', b'')
+    for text in ('Report_', '2026%', '!draft'):
+        result = json_request('GET', '/api/search?' + urlencode({'q': text}), token=token)
+        assert result['total'] == 2
+        assert {(item['type'], item['name']) for item in result['items']} == {
+            ('folder', literal), ('file', literal + '.txt'),
+        }
+
     before = quota()
     entry = delete_file(item)
     assert quota() == before

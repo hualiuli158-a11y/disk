@@ -9,15 +9,22 @@ ContentsPage SearchRepository::Search(std::uint64_t user, const SearchQuery &que
     const std::string folders =
         "SELECT id,'folder' AS type,parent_id,name,CAST(NULL AS SIGNED) AS size,NULL AS "
         "sha256,created_at,updated_at "
-        "FROM folders WHERE user_id={} AND parent_id IS NOT NULL AND deleted_at IS NULL AND name LIKE {}";
+        "FROM folders WHERE user_id={} AND parent_id IS NOT NULL AND deleted_at IS NULL AND name LIKE {} ESCAPE '!'";
     const std::string files = "SELECT f.id,'file' AS type,f.folder_id AS "
                               "parent_id,f.name,p.size,p.sha256,f.created_at,f.updated_at "
                               "FROM files f JOIN physical_files p ON p.id=f.physical_file_id WHERE "
-                              "f.user_id={} AND f.deleted_at IS NULL AND f.name LIKE {}";
+                              "f.user_id={} AND f.deleted_at IS NULL AND f.name LIKE {} ESCAPE '!'";
     const auto base = query.type == "folder" ? folders
                       : query.type == "file" ? files
                                              : folders + " UNION ALL " + files;
-    const auto pattern = "%" + query.text + "%";
+    std::string pattern = "%";
+    for (const char ch : query.text)
+    {
+        if (ch == '%' || ch == '_' || ch == '!')
+            pattern += '!';
+        pattern += ch;
+    }
+    pattern += '%';
     auto connection = database_.Get();
     auto execute = [&](const std::string &sql)
     {

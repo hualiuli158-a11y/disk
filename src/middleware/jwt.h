@@ -2,6 +2,7 @@
 
 #include "gin/gin.h"
 #include "auth.h"
+#include "common.h"
 
 namespace disk::middleware {
 
@@ -29,8 +30,10 @@ inline gin::HandlerFunc JWT(const Auth& auth)
         {
             userId = auth.Verify(authorization);
         }
-        catch (const std::exception&)
+        catch (const Error& error)
         {
+            if (error.status != 401)
+                throw;
             c.AbortWithStatusJSON(401, gin::H{{"error", "Invalid or expired token"}});
             return;
         }

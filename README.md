@@ -64,7 +64,7 @@ src/
 | PATCH | /api/files/:id | 文件重命名 |
 | PATCH | /api/files/:id/move | 文件移动 |
 | DELETE | /api/files/:id | 文件软删除至回收站 |
-| GET | /api/search | 文件与目录的名称搜索（MySQL LIKE 匹配、类型筛选、排序与分页） |
+| GET | /api/search | 文件与目录的名称搜索（按字面子串匹配，支持类型筛选、排序与分页） |
 | GET | /api/trash | 回收站条目分页列表 |
 | POST | /api/trash/:id/restore | 资源从回收站恢复（同名冲突校验、父目录失效自动恢复至根目录） |
 | DELETE | /api/trash/:id | 永久删除、逻辑配额返还和无引用对象清理 |
