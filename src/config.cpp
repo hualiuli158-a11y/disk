@@ -22,6 +22,16 @@ std::uint64_t Number(const char *key, std::uint64_t fallback, std::uint64_t maxi
         throw std::runtime_error(std::string("Invalid environment setting ") + key);
     return result;
 }
+
+bool SwaggerEnabled()
+{
+    const auto value = Env("SWAGGER_ENABLED", "false");
+    if (value == "true")
+        return true;
+    if (value == "false")
+        return false;
+    throw std::runtime_error("SWAGGER_ENABLED must be true or false");
+}
 } // namespace
 Config Config::Environment()
 {
@@ -42,6 +52,7 @@ Config Config::Environment()
     c.storageKey = Env("STORAGE_TLS_CLIENT_KEY");
     c.storageServerName = Env("STORAGE_TLS_SERVER_NAME");
     c.corsOrigin = Env("CORS_ALLOWED_ORIGIN");
+    c.swaggerEnabled = SwaggerEnabled();
     c.maxUploadBytes = Number("UPLOAD_MAX_BYTES", c.maxUploadBytes, 1ULL << 30);
     c.maxConcurrentUploads = Number("UPLOAD_CONCURRENT_GLOBAL", 4, 64);
     c.uploadIdleTimeout = std::chrono::seconds(Number("UPLOAD_IDLE_TIMEOUT_SECONDS", 30, 86400));

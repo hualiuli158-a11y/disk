@@ -1,4 +1,5 @@
 #include "router.h"
+#include "swagger.h"
 #include "middleware/jwt.h"
 #include "middleware/errors.h"
 #include "middleware/upload_limits.h"
@@ -30,6 +31,9 @@ std::unique_ptr<gin::Engine> SetupRouter(AppContext& app, const Config& config)
     options.worker_pools["uploads"] = {4, 64};
     options.worker_pools["health"] = {1, 4};
     engine->SetServerOptions(std::move(options));
+
+    if (config.swaggerEnabled)
+        RegisterSwagger(*engine);
 
     auto authHandler = std::make_shared<handler::AuthHandler>(app.accounts);
     auto userHandler = std::make_shared<handler::UserHandler>(app.accounts);

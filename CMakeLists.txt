@@ -59,6 +59,18 @@ add_library(disk_charconv STATIC
 target_link_libraries(disk_charconv PUBLIC Boost::headers)
 target_compile_definitions(disk_charconv PUBLIC BOOST_CHARCONV_STATIC_LINK BOOST_CHARCONV_NO_LIB PRIVATE BOOST_CHARCONV_SOURCE)
 include(cmake/Dependencies.cmake)
+set(disk_swagger_files
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/openapi.json"
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/swagger/index.html"
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/swagger/init.js"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/swagger-ui/swagger-ui.css"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/swagger-ui/swagger-ui-bundle.js")
+set(disk_swagger_header "${CMAKE_CURRENT_BINARY_DIR}/generated/disk_swagger_assets.h")
+add_custom_command(OUTPUT "${disk_swagger_header}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_swagger_assets.py"
+        "${disk_swagger_header}" ${disk_swagger_files}
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_swagger_assets.py" ${disk_swagger_files}
+    VERBATIM)
 include("${MOUDU_ASIO_ROOT}/backend/cmake/GrpcProto.cmake")
 add_library(disk_proto STATIC)
 target_grpc_proto(disk_proto "${CMAKE_CURRENT_SOURCE_DIR}/storage/proto/object_storage.proto")
@@ -73,7 +85,8 @@ add_library(disk_core STATIC
     src/services/search_service.cpp src/services/trash_service.cpp
     src/handlers/auth_handler.cpp src/handlers/user_handler.cpp src/handlers/folder_handler.cpp
     src/handlers/file_handler.cpp src/handlers/search_handler.cpp src/handlers/trash_handler.cpp
-    src/router/router.cpp)
+    src/router/router.cpp src/router/swagger.cpp "${disk_swagger_header}")
+target_include_directories(disk_core PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_include_directories(disk_core PUBLIC src "${CMAKE_CURRENT_SOURCE_DIR}/third_party" "${MOUDU_ASIO_ROOT}/backend/src" "${JWT_SOURCE_DIR}/include")
 target_link_libraries(disk_core PUBLIC gin::gin JsonCpp::JsonCpp disk_charconv disk_proto disk_botan disk_multipart OpenSSL::SSL OpenSSL::Crypto)
 target_compile_definitions(disk_core PUBLIC BOOST_ASIO_NO_DEPRECATED)

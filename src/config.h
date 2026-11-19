@@ -20,6 +20,7 @@ struct Config
     std::string storageAddress = "127.0.0.1:50051";
     std::string storageCA, storageCertificate, storageKey, storageServerName;
     std::string corsOrigin;
+    bool swaggerEnabled = false;
     std::uint64_t maxUploadBytes = 1ULL << 30;
     std::size_t maxConcurrentUploads = 4;
     std::chrono::seconds uploadIdleTimeout{30};

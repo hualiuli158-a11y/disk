@@ -70,6 +70,19 @@ src/
 | DELETE | /api/trash/:id | 永久删除、逻辑配额返还和无引用对象清理 |
 | GET | /livez、/readyz | 存活及数据库、存储可用性检查 |
 
+### Swagger UI
+
+设置进程环境变量 `SWAGGER_ENABLED=true` 后启动 API，浏览器打开
+`http://127.0.0.1:8080/docs/`。端口以 `PORT` 为准。原始规范可从
+`/openapi.json` 获取，也可以查看 [OpenAPI 3.0 规范文件](docs/openapi.json)。
+
+在页面执行 `POST /login` 或 `POST /register`，复制响应里的
+`access_token`，在 **Authorize** 输入令牌。页面会为后续受保护请求添加
+`Authorization: Bearer` 请求头。上传接口填写 `folder_id` 并选择一个文件。
+
+文档默认关闭。Swagger UI 静态资源和接口规范在构建时嵌入 API 可执行文件，
+页面和试调请求使用同一来源。
+
 上传使用四个 64 KiB HTTP 正文块的队列，队列满时暂停 Connection 读取。下载按写完成回调继续读取下一块。普通业务、上传、下载各有独立的四线程工作池，健康检查使用独立的一线程工作池。请求断开会终止队列等待并取消存储 RPC。
 
 每用户最多同时接受两项上传，全局默认最多四项，包含已准入的等待任务和执行中任务，达到上限返回 429。UPLOAD_CONCURRENT_GLOBAL 可设置全局上限，范围为 1 至 64。UPLOAD_IDLE_TIMEOUT_SECONDS 默认 30 秒，正文持续空闲时返回 408 并取消上传。服务端队列满造成的背压暂停会延后空闲判断，整体请求仍受 REQUEST_TIMEOUT_SECONDS 限制。

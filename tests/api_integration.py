@@ -96,6 +96,20 @@ def run(executable):
         else:
             raise RuntimeError('API failed to start')
 
+        if os.environ.get('SWAGGER_ENABLED') == 'true':
+            html, headers = request('GET', '/docs/')
+            assert headers.get_content_type() == 'text/html' and b'id="swagger-ui"' in html
+            bundle, headers = request('GET', '/docs/swagger-ui-bundle.js')
+            assert headers.get_content_type() == 'application/javascript' and b'SwaggerUIBundle' in bundle
+            spec = json_request('GET', '/openapi.json')
+            assert spec['security'] == [{'BearerAuth': []}]
+            assert spec['paths']['/login']['post']['security'] == []
+            upload_content = spec['paths']['/api/files']['post']['requestBody']['content']
+            assert upload_content['multipart/form-data']['schema']['required'] == ['folder_id', 'file']
+        else:
+            request('GET', '/docs/', expected=404)
+            request('GET', '/openapi.json', expected=404)
+
         username = 'cpp_' + uuid.uuid4().hex[:16]
         credentials = {'username': username, 'password': 'correct-password-123'}
         token = json_request('POST', '/register', credentials)['access_token']
